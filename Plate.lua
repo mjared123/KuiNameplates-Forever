@@ -18,13 +18,52 @@ local COLOR_TANK_BAD = { 1.00, 0.45, 0.10 } -- tank mode: threat slipping
 local UNIT_EVENTS = {
     "UNIT_HEALTH", "UNIT_HEALTH_FREQUENT", "UNIT_MAXHEALTH",
     "UNIT_NAME_UPDATE", "UNIT_LEVEL", "UNIT_FACTION", "UNIT_CLASSIFICATION_CHANGED",
-    "UNIT_THREAT_SITUATION_UPDATE", "UNIT_THREAT_LIST_UPDATE",
+    "UNIT_THREAT_SITUATION_UPDATE", "UNIT_THREAT_LIST_UPDATE", "UNIT_AURA",
+    "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
+    "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED",
+    "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE", "UNIT_SPELLCAST_CHANNEL_STOP",
 }
+
+local CAST_EVENTS = {
+    UNIT_SPELLCAST_START = true, UNIT_SPELLCAST_STOP = true, UNIT_SPELLCAST_FAILED = true,
+    UNIT_SPELLCAST_DELAYED = true, UNIT_SPELLCAST_CHANNEL_START = true,
+    UNIT_SPELLCAST_CHANNEL_UPDATE = true, UNIT_SPELLCAST_CHANNEL_STOP = true,
+}
+
+local COLOR_CAST        = { 0.95, 0.75, 0.20 }
+local COLOR_CHANNEL     = { 0.40, 0.80, 0.40 }
+local COLOR_UNINTERRUPT = { 0.60, 0.60, 0.60 }
+local COLOR_INTERRUPTED = { 1.00, 0.20, 0.20 }
 
 local Plate = {}
 
-local function SetColor(tex, c, a)
-    tex:SetVertexColor(c[1], c[2], c[3], a or 1)
+-- A 1px black border plus dark fill behind a bar or icon.
+local function AddBorder(frame, fillAlpha)
+    local border = frame:CreateTexture(nil, "BACKGROUND", nil, -7)
+    border:SetTexture(BAR)
+    border:SetVertexColor(0, 0, 0, 1)
+    border:SetPoint("TOPLEFT", -1, 1)
+    border:SetPoint("BOTTOMRIGHT", 1, -1)
+    if fillAlpha then
+        local fill = frame:CreateTexture(nil, "BACKGROUND", nil, -6)
+        fill:SetTexture(BAR)
+        fill:SetVertexColor(0.08, 0.08, 0.08, fillAlpha)
+        fill:SetAllPoints(frame)
+    end
+end
+
+local function CastOnUpdate(cast, elapsed)
+    local now = GetTime()
+    if now >= cast.endTime then
+        cast:Hide()
+        return
+    end
+    if cast.frozen then return end
+    if cast.channel then
+        cast:SetValue(cast.endTime - now)
+    else
+        cast:SetValue(now - cast.startTime)
+    end
 end
 
 function ns:CreatePlate(nameplate)
@@ -47,17 +86,31 @@ function ns:CreatePlate(nameplate)
     glow:Hide()
     plate.glow = glow
 
-    -- 1px black border with a dark fill behind the bar.
-    local border = health:CreateTexture(nil, "BACKGROUND", nil, -7)
-    border:SetTexture(BAR)
-    border:SetVertexColor(0, 0, 0, 1)
-    border:SetPoint("TOPLEFT", -1, 1)
-    border:SetPoint("BOTTOMRIGHT", 1, -1)
+    AddBorder(health, 0.9)
 
-    local fill = health:CreateTexture(nil, "BACKGROUND", nil, -6)
-    fill:SetTexture(BAR)
-    fill:SetVertexColor(0.08, 0.08, 0.08, 0.9)
-    fill:SetAllPoints(health)
+    -- Cast bar under the health bar, with the spell icon to its left.
+    local cast = CreateFrame("StatusBar", nil, plate)
+    cast:SetStatusBarTexture(BAR)
+    cast:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -3)
+    cast:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT", 0, -3)
+    AddBorder(cast, 0.9)
+    cast.icon = cast:CreateTexture(nil, "ARTWORK")
+    cast.icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
+    cast.icon:SetPoint("TOPRIGHT", health, "TOPLEFT", -3, 0)
+    cast.icon:SetPoint("BOTTOMRIGHT", cast, "BOTTOMLEFT", -3, 0)
+    cast.iconBorder = cast:CreateTexture(nil, "BACKGROUND", nil, -7)
+    cast.iconBorder:SetTexture(BAR)
+    cast.iconBorder:SetVertexColor(0, 0, 0, 1)
+    cast.iconBorder:SetPoint("TOPLEFT", cast.icon, -1, 1)
+    cast.iconBorder:SetPoint("BOTTOMRIGHT", cast.icon, 1, -1)
+    cast.text = cast:CreateFontString(nil, "OVERLAY")
+    cast.text:SetPoint("TOP", cast, "BOTTOM", 0, -2)
+    cast:SetScript("OnUpdate", CastOnUpdate)
+    cast:Hide()
+    plate.cast = cast
+
+    plate.auraButtons = {}
+    plate.pending = {}
 
     plate.name = plate:CreateFontString(nil, "OVERLAY")
     plate.name:SetPoint("BOTTOM", health, "TOP", 0, 3)
@@ -72,7 +125,7 @@ function ns:CreatePlate(nameplate)
     plate.raidIcon = health:CreateTexture(nil, "OVERLAY")
     plate.raidIcon:SetTexture(RAID_ICONS)
     plate.raidIcon:SetSize(18, 18)
-    plate.raidIcon:SetPoint("RIGHT", health, "LEFT", -4, 0)
+    plate.raidIcon:SetPoint("LEFT", health, "RIGHT", 4, 0)
     plate.raidIcon:Hide()
 
     plate:SetScript("OnEvent", plate.OnEvent)
@@ -92,6 +145,12 @@ function Plate:ApplyLayout()
     local small = math.max(db.height - 1, 8)
     self.level:SetFont(FONT, small, "OUTLINE")
     self.healthText:SetFont(FONT, small, "OUTLINE")
+    self.cast:SetHeight(db.castHeight)
+    self.cast.text:SetFont(FONT, math.max(db.nameSize - 1, 7), "OUTLINE")
+    self.cast.icon:SetWidth(db.height + db.castHeight + 3)
+    for _, button in ipairs(self.auraButtons) do
+        button:SetSize(db.auraWidth, math.floor(db.auraWidth * 0.65 + 0.5))
+    end
 end
 
 -- Keep Blizzard's own plate hidden underneath ours.
@@ -118,13 +177,20 @@ end
 function Plate:OnUnitRemoved()
     self:UnregisterAllEvents()
     self.unit = nil
+    self.cast:Hide()
     self:Hide()
 end
 
 function Plate:OnEvent(event)
     if not self.unit then return end
     if event == "UNIT_HEALTH" or event == "UNIT_HEALTH_FREQUENT" or event == "UNIT_MAXHEALTH" then
-        self:UpdateHealth()
+        ns:Queue(self, "health")
+    elseif event == "UNIT_AURA" then
+        ns:Queue(self, "auras")
+    elseif CAST_EVENTS[event] then
+        self:UpdateCast()
+    elseif event == "UNIT_SPELLCAST_INTERRUPTED" then
+        self:ShowInterrupted()
     elseif event == "UNIT_NAME_UPDATE" then
         self:UpdateName()
     elseif event == "UNIT_LEVEL" or event == "UNIT_CLASSIFICATION_CHANGED" then
@@ -142,6 +208,8 @@ function Plate:UpdateAll()
     self:UpdateColor()
     self:UpdateRaidIcon()
     self:UpdateTarget()
+    self:UpdateCast()
+    self:UpdateAuras()
 end
 
 function Plate:UpdateName()
@@ -251,5 +319,129 @@ function Plate:UpdateGlow()
         glow:Show()
     else
         glow:Hide()
+    end
+end
+
+-- Cast bars -----------------------------------------------------------------
+
+-- Returns name, icon, start (s), end (s), isChannel, notInterruptible.
+-- Classic clients return a spell ID where retail returns notInterruptible,
+-- so only a real boolean counts.
+local function GetCast(unit)
+    if UnitCastingInfo then
+        local name, _, icon, startMS, endMS, _, _, notInt = UnitCastingInfo(unit)
+        if name then return name, icon, startMS / 1000, endMS / 1000, false, notInt == true end
+    end
+    if UnitChannelInfo then
+        local name, _, icon, startMS, endMS, _, notInt = UnitChannelInfo(unit)
+        if name then return name, icon, startMS / 1000, endMS / 1000, true, notInt == true end
+    end
+end
+
+function Plate:UpdateCast()
+    local cast = self.cast
+    if not ns.db.castBars then cast:Hide() return end
+    local name, icon, startTime, endTime, channel, notInt = GetCast(self.unit)
+    if not name then
+        if not cast.frozen then
+            if cast:IsShown() then cast.stoppedAt = GetTime() end
+            cast:Hide()
+        end
+        return
+    end
+    cast.frozen = nil
+    cast.startTime, cast.endTime, cast.channel = startTime, endTime, channel
+    cast:SetMinMaxValues(0, math.max(endTime - startTime, 0.001))
+    local c = notInt and COLOR_UNINTERRUPT or (channel and COLOR_CHANNEL or COLOR_CAST)
+    cast:SetStatusBarColor(c[1], c[2], c[3])
+    cast.icon:SetTexture(icon)
+    cast.text:SetText(name)
+    CastOnUpdate(cast, 0)
+    if GetTime() < endTime then cast:Show() end
+end
+
+-- Briefly show a red "Interrupted" bar before hiding it.
+function Plate:ShowInterrupted()
+    local cast = self.cast
+    -- The STOP event can arrive just before INTERRUPTED and hide the bar first.
+    local justStopped = cast.stoppedAt and GetTime() - cast.stoppedAt < 0.2
+    if not ns.db.castBars or not (cast:IsShown() or justStopped) then return end
+    cast.frozen = true
+    cast:Show()
+    cast.endTime = GetTime() + 0.6
+    cast:SetValue(select(2, cast:GetMinMaxValues()))
+    cast:SetStatusBarColor(COLOR_INTERRUPTED[1], COLOR_INTERRUPTED[2], COLOR_INTERRUPTED[3])
+    cast.text:SetText(INTERRUPTED or "Interrupted")
+end
+
+-- Auras ---------------------------------------------------------------------
+
+-- Returns name, icon, count, duration, expirationTime for one aura,
+-- using whichever aura API this client has.
+local function GetAura(unit, index, filter)
+    if UnitAura then
+        local name, icon, count, _, duration, expiration = UnitAura(unit, index, filter)
+        return name, icon, count, duration, expiration
+    elseif C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
+        local a = C_UnitAuras.GetAuraDataByIndex(unit, index, filter)
+        if a then return a.name, a.icon, a.applications, a.duration, a.expirationTime end
+    end
+end
+
+function Plate:GetAuraButton(i)
+    local button = self.auraButtons[i]
+    if button then return button end
+    button = CreateFrame("Frame", nil, self)
+    local db = ns.db
+    button:SetSize(db.auraWidth, math.floor(db.auraWidth * 0.65 + 0.5))
+    AddBorder(button)
+    button.icon = button:CreateTexture(nil, "ARTWORK")
+    button.icon:SetAllPoints()
+    button.icon:SetTexCoord(0.1, 0.9, 0.25, 0.75) -- crop to the wide icon shape
+    button.cd = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
+    button.cd:SetAllPoints()
+    button.cd:SetReverse(true)
+    button.count = button:CreateFontString(nil, "OVERLAY")
+    button.count:SetFont(FONT, 9, "OUTLINE")
+    button.count:SetPoint("BOTTOMRIGHT", 2, -2)
+    self.auraButtons[i] = button
+    return button
+end
+
+-- Your own debuffs on attackable units, in a centred row above the name.
+function Plate:UpdateAuras()
+    local unit, db = self.unit, ns.db
+    local shown = 0
+    if db.auras and db.maxAuras > 0 and UnitCanAttack("player", unit) then
+        for i = 1, 40 do
+            local name, icon, count, duration, expiration = GetAura(unit, i, "HARMFUL|PLAYER")
+            if not name then break end
+            shown = shown + 1
+            local button = self:GetAuraButton(shown)
+            button.icon:SetTexture(icon)
+            button.count:SetText((count and count > 1) and count or "")
+            if duration and duration > 0 and expiration then
+                button.cd:SetCooldown(expiration - duration, duration)
+                button.cd:Show()
+            else
+                button.cd:Hide()
+            end
+            button:Show()
+            if shown >= db.maxAuras then break end
+        end
+    end
+    for i = shown + 1, #self.auraButtons do
+        self.auraButtons[i]:Hide()
+    end
+    if shown == 0 then return end
+
+    local gap = 2
+    local total = shown * db.auraWidth + (shown - 1) * gap
+    local x = (db.width - total) / 2
+    for i = 1, shown do
+        local button = self.auraButtons[i]
+        button:ClearAllPoints()
+        button:SetPoint("BOTTOMLEFT", self.health, "TOPLEFT",
+            x + (i - 1) * (db.auraWidth + gap), db.nameSize + 7)
     end
 end

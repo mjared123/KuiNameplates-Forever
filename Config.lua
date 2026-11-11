@@ -1,4 +1,4 @@
--- ForeverPlates: slash commands. A full settings panel comes in a later step.
+-- ForeverPlates: slash commands. The settings panel lives in Options.lua.
 local _, ns = ...
 
 local function OnOff(value)
@@ -10,6 +10,8 @@ local toggles = {
     tank = { key = "tankMode", label = "Tank mode" },
     level = { key = "showLevel", label = "Level text" },
     hp = { key = "healthText", label = "Health percent" },
+    cast = { key = "castBars", label = "Cast bars" },
+    debuffs = { key = "auras", label = "Debuff icons" },
 }
 
 local numbers = {
@@ -17,14 +19,26 @@ local numbers = {
     height = { key = "height", min = 4, max = 40 },
     font = { key = "nameSize", min = 6, max = 24 },
     alpha = { key = "nonTargetAlpha", min = 0, max = 1 },
+    icons = { key = "maxAuras", min = 0, max = 10 },
 }
+
+function ns:ResetSettings()
+    local db = self.db
+    local keep = db.maxDistance
+    wipe(db)
+    for k, v in pairs(self.defaults) do db[k] = v end
+    db.maxDistance = keep -- the game's distance setting isn't reverted automatically
+    self:RefreshAll()
+end
 
 local function Help()
     ns.Print("commands:")
+    print("  /fp config  - open the settings panel")
     print("  /fp range [yards]  - show or set max nameplate distance")
     print("  /fp width|height|font <n>  - bar size and name font size")
     print("  /fp alpha <0-1>  - transparency of non-target plates")
-    print("  /fp class|tank|level|hp  - toggle features")
+    print("  /fp icons <n>  - max debuff icons per plate")
+    print("  /fp class|tank|level|hp|cast|debuffs  - toggle features")
     print("  /fp reset  - restore defaults")
 end
 
@@ -32,7 +46,9 @@ local function Handle(msg)
     local cmd, arg = strsplit(" ", (msg or ""):lower(), 2)
     local db = ns.db
 
-    if cmd == "range" then
+    if cmd == "config" or cmd == "options" then
+        ns:OpenOptions()
+    elseif cmd == "range" then
         local value = tonumber(arg)
         if value then
             db.maxDistance = value
@@ -61,9 +77,7 @@ local function Handle(msg)
         ns.Print(cmd .. " set to " .. db[n.key])
         ns:RefreshAll()
     elseif cmd == "reset" then
-        wipe(db)
-        for k, v in pairs(ns.defaults) do db[k] = v end
-        ns:RefreshAll()
+        ns:ResetSettings()
         ns.Print("settings reset. Max distance is left as it is; use /fp range to change it.")
     else
         Help()

@@ -8,3 +8,4 @@
 Core.lua
 Plate.lua
 Config.lua
+Options.lua

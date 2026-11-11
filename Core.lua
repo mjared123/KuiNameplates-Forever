@@ -12,6 +12,11 @@ ns.defaults = {
     healthText = true,    -- show health percent when damaged
     showLevel = true,
     tankMode = false,     -- colour bars by whether you hold threat
+    castBars = true,
+    castHeight = 6,
+    auras = true,         -- your debuffs on enemies
+    maxAuras = 6,
+    auraWidth = 22,
     maxDistance = nil,    -- nameplateMaxDistance CVar; nil leaves the game's value
 }
 
@@ -32,6 +37,30 @@ events:SetScript("OnEvent", function(_, event, ...)
     local handler = ns[event]
     if handler then handler(ns, ...) end
 end)
+
+-- Coalesce frequent updates (health, auras) into at most one per plate per frame.
+-- With long nameplate ranges, dozens of plates can fire events every frame in big pulls.
+local queued = {}
+local driver = CreateFrame("Frame")
+driver:Hide()
+driver:SetScript("OnUpdate", function(self)
+    self:Hide()
+    for plate in pairs(queued) do
+        queued[plate] = nil
+        local pending = plate.pending
+        if plate.unit then
+            if pending.health then plate:UpdateHealth() end
+            if pending.auras then plate:UpdateAuras() end
+        end
+        pending.health, pending.auras = nil, nil
+    end
+end)
+
+function ns:Queue(plate, kind)
+    plate.pending[kind] = true
+    queued[plate] = true
+    driver:Show()
+end
 
 -- CVars can't be changed in combat, so queue the change until it ends.
 function ns:ApplyCVars()
@@ -64,6 +93,7 @@ end
 
 function ns:PLAYER_LOGIN()
     self:ApplyCVars()
+    if self.CreateOptions then self:CreateOptions() end
 end
 
 function ns:NAME_PLATE_UNIT_ADDED(unit)
@@ -96,8 +126,8 @@ end
 
 -- Re-apply sizes and fonts to every plate after a setting changes.
 function ns:RefreshAll()
-    for nameplate in pairs(self.allPlates or {}) do
-        nameplate:ApplyLayout()
+    for plate in pairs(self.allPlates or {}) do
+        plate:ApplyLayout()
     end
     for _, plate in pairs(self.plates) do
         plate:UpdateAll()
