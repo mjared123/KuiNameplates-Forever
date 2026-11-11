@@ -1,0 +1,10 @@
+## Interface: 11507
+## Title: ForeverPlates
+## Notes: Clean, minimal nameplates built for WoW: Forever.
+## Author: mjared123
+## Version: @project-version@
+## SavedVariables: ForeverPlatesDB
+
+Core.lua
+Plate.lua
+Config.lua
