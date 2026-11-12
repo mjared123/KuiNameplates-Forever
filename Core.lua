@@ -6,7 +6,14 @@ ns.plates = {} -- nameplate unit token -> our plate frame
 ns.defaults = {
     width = 132,          -- health bar width
     height = 11,          -- health bar height
-    nameSize = 11,        -- name font size
+    nameSize = 11,        -- enemy name font size
+    nameOffset = 0,       -- moves the enemy name up or down from the bar's top edge
+    infoSize = 8,         -- level and health percent font size
+    castTextSize = 9,     -- spell name font size
+    friendNameSize = 11,  -- font size of friendly names shown without a bar
+    titleSize = 10,       -- NPC title / guild line font size
+    titleSpacing = 0,     -- gap between a friendly name and its title line
+    titleR = 0.93, titleG = 0.80, titleB = 0.52, -- title line colour (warm sand)
     scale = 1,            -- overall plate size multiplier
     nameOnly = true,      -- friendly units show a coloured name and no bar
     showTitle = true,     -- NPC titles and guild names under friendly names

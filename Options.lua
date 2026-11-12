@@ -6,46 +6,22 @@ local SOLID = "Interface\\Buttons\\WHITE8X8"
 local COLUMN_WIDTH = 270
 local CONTROL_WIDTH = 230
 
--- The panel is two columns of sections. Each entry is one control:
+-- The panel is a row of tabs. Each tab is two columns of sections, and each
+-- entry in a section is one control:
 --   { "check", key, label }
 --   { "slider", key, label, min, max, step }
 --   { "dropdown", key, label, values, names }
+--   { "color", keyPrefix, label }       -- uses keyPrefix .. "R" / "G" / "B"
 --   { "button", label, onClick }
-local function Layout()
+local function Pages()
     return {
-        { -- left column
-            { title = "Appearance",
+        { name = "General",
+          { { title = "All plates",
               { "slider", "scale", "Overall size", 0.5, 2, 0.05 },
-              { "slider", "width", "Bar width", 40, 300, 2 },
-              { "slider", "height", "Bar height", 4, 40, 1 },
-              { "slider", "nameSize", "Name font size", 6, 24, 1 },
               { "slider", "nonTargetAlpha", "Opacity of plates you aren't targeting", 0, 1, 0.05 },
-            },
-            { title = "Units",
-              { "check", "classColors", "Class colours on enemy players" },
-              { "check", "healthText", "Show health percent" },
-              { "check", "showLevel", "Show level" },
-              { "check", "tankMode", "Tank mode (colour bars by threat)" },
-              { "check", "nameOnly", "Friendly units: name only, no bar" },
-              { "check", "showTitle", "Show NPC titles and guild names" },
-              { "slider", "nameOnlyOffset", "Friendly name height", -40, 60, 1 },
-            },
-        },
-        { -- right column
-            { title = "Cast bars",
-              { "check", "castBars", "Show cast bars" },
-              { "dropdown", "castStyle", "Style", ns.CAST_STYLES, ns.CAST_STYLE_NAMES },
-              { "slider", "castHeight", "Cast bar size", 2, 20, 1 },
-            },
-            { title = "Debuffs",
-              { "check", "auras", "Show your debuffs on enemies" },
-              { "check", "auraColors", "Colour borders by type (poison, curse...)" },
-              { "dropdown", "auraSpot", "Position", ns.AURA_SPOTS, ns.AURA_SPOT_NAMES },
-              { "slider", "auraWidth", "Icon size", 12, 40, 1 },
-              { "slider", "auraOffset", "Distance from the bar", -20, 40, 1 },
-            },
-            { title = "Other",
               { "slider", "maxDistance", "Max nameplate distance (yards)", 10, 100, 1 },
+            } },
+          { { title = "Tools",
               { "check", "minimapButton", "Show minimap button" },
               { "button", "Toggle test mode", function()
                     ns:SetTestMode(not ns.testMode)
@@ -54,7 +30,56 @@ local function Layout()
                     ns:ResetSettings()
                     panel:Refresh()
                 end },
-            },
+            } },
+        },
+        { name = "Enemies",
+          { { title = "Health bar",
+              { "slider", "width", "Bar width", 40, 300, 2 },
+              { "slider", "height", "Bar height", 4, 40, 1 },
+              { "check", "classColors", "Class colours on enemy players" },
+              { "check", "tankMode", "Tank mode (colour bars by threat)" },
+            } },
+          { { title = "Text",
+              { "slider", "nameSize", "Name size", 6, 24, 1 },
+              { "slider", "nameOffset", "Name height above the bar", -10, 20, 1 },
+              { "check", "healthText", "Show health percent" },
+              { "check", "showLevel", "Show level" },
+              { "slider", "infoSize", "Level and health percent size", 6, 20, 1 },
+            } },
+        },
+        { name = "Friendly",
+          { { title = "Name",
+              { "check", "nameOnly", "Show a name only, with no bar" },
+              { "slider", "friendNameSize", "Name size", 6, 24, 1 },
+              { "slider", "nameOnlyOffset", "Height above the head", -40, 60, 1 },
+            } },
+          { { title = "Title and guild line",
+              { "check", "showTitle", "Show NPC titles and guild names" },
+              { "slider", "titleSize", "Text size", 6, 24, 1 },
+              { "slider", "titleSpacing", "Gap between name and this line", -6, 20, 1 },
+              { "color", "title", "Text colour" },
+            } },
+        },
+        { name = "Cast bars",
+          { { title = "Bar",
+              { "check", "castBars", "Show cast bars" },
+              { "dropdown", "castStyle", "Style", ns.CAST_STYLES, ns.CAST_STYLE_NAMES },
+              { "slider", "castHeight", "Size", 2, 20, 1 },
+            } },
+          { { title = "Text",
+              { "slider", "castTextSize", "Spell name size", 6, 20, 1 },
+            } },
+        },
+        { name = "Debuffs",
+          { { title = "Icons",
+              { "check", "auras", "Show your debuffs on enemies" },
+              { "check", "auraColors", "Colour borders by type (poison, curse...)" },
+              { "slider", "auraWidth", "Icon size", 12, 40, 1 },
+            } },
+          { { title = "Placement",
+              { "dropdown", "auraSpot", "Position", ns.AURA_SPOTS, ns.AURA_SPOT_NAMES },
+              { "slider", "auraOffset", "Distance from the bar", -20, 40, 1 },
+            } },
         },
     }
 end
@@ -94,27 +119,28 @@ local function AddBox(frame, r, g, b)
     fill:SetVertexColor(r or 0.07, g or 0.07, b or 0.09, 1)
     fill:SetPoint("TOPLEFT", 1, -1)
     fill:SetPoint("BOTTOMRIGHT", -1, 1)
+    return fill
 end
 
 -- Controls ---------------------------------------------------------------------
--- Each builder places its control at (x, y) and returns the widget and the
--- vertical space it used.
+-- Each builder places its control at (x, y) on a page and returns the widget
+-- and the vertical space it used.
 
-local function CreateHeader(panel, text, x, y)
-    local label = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+local function CreateHeader(page, text, x, y)
+    local label = page:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     label:SetPoint("TOPLEFT", x, y)
     label:SetText(text)
-    local line = panel:CreateTexture(nil, "ARTWORK")
+    local line = page:CreateTexture(nil, "ARTWORK")
     line:SetTexture(SOLID)
     line:SetVertexColor(1, 0.82, 0, 0.25)
     line:SetHeight(1)
     line:SetPoint("TOPLEFT", x, y - 16)
     line:SetWidth(COLUMN_WIDTH)
-    return 24
+    return 26
 end
 
-local function CreateCheckbox(panel, key, text, x, y)
-    local cb = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+local function CreateCheckbox(page, key, text, x, y)
+    local cb = CreateFrame("CheckButton", nil, page, "UICheckButtonTemplate")
     cb:SetSize(24, 24)
     cb:SetPoint("TOPLEFT", x - 2, y)
     local label = cb:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -126,18 +152,18 @@ local function CreateCheckbox(panel, key, text, x, y)
         Apply(key)
     end)
     cb.Refresh = function(self) self:SetChecked(ns.db[key]) end
-    return cb, 24
+    return cb, 26
 end
 
-local function CreateSlider(panel, key, text, min, max, step, x, y)
-    local label = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+local function CreateSlider(page, key, text, min, max, step, x, y)
+    local label = page:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     label:SetPoint("TOPLEFT", x, y - 2)
     label:SetText(text)
 
-    local valueText = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    valueText:SetPoint("TOPRIGHT", panel, "TOPLEFT", x + CONTROL_WIDTH, y - 2)
+    local valueText = page:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    valueText:SetPoint("TOPRIGHT", page, "TOPLEFT", x + CONTROL_WIDTH, y - 2)
 
-    local slider = CreateFrame("Slider", nil, panel)
+    local slider = CreateFrame("Slider", nil, page)
     slider:SetOrientation("HORIZONTAL")
     slider:SetSize(CONTROL_WIDTH, 14)
     slider:SetPoint("TOPLEFT", x, y - 17)
@@ -176,16 +202,16 @@ local function CreateSlider(panel, key, text, min, max, step, x, y)
         valueText:SetText(FormatValue(value, step))
         self.refreshing = nil
     end
-    return slider, 38
+    return slider, 42
 end
 
 -- A button showing the current choice; clicking it opens a list to pick from.
-local function CreateDropdown(panel, key, text, values, names, x, y)
-    local label = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+local function CreateDropdown(page, key, text, values, names, x, y)
+    local label = page:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     label:SetPoint("TOPLEFT", x, y - 2)
     label:SetText(text)
 
-    local button = CreateFrame("Button", nil, panel)
+    local button = CreateFrame("Button", nil, page)
     button:SetSize(CONTROL_WIDTH, 22)
     button:SetPoint("TOPLEFT", x, y - 17)
     AddBox(button)
@@ -242,20 +268,101 @@ local function CreateDropdown(panel, key, text, values, names, x, y)
             if v == value then row.text:SetTextColor(1, 0.82, 0) else row.text:SetTextColor(1, 1, 1) end
         end
     end
-    return button, 46
+    return button, 50
 end
 
-local function CreateButton(panel, text, onClick, x, y)
-    local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    button:SetSize(140, 22)
-    button:SetPoint("TOPLEFT", x, y - 6)
+-- Open the game's colour picker on a colour, calling onChange(r, g, b) as it
+-- changes and restoring the old colour if the picker is cancelled.
+local function PickColor(r, g, b, onChange)
+    local picker = ColorPickerFrame
+    if not picker then return end
+    local function Changed()
+        onChange(picker:GetColorRGB())
+    end
+    local function Cancelled()
+        onChange(r, g, b)
+    end
+    if picker.SetupColorPickerAndShow then
+        picker:SetupColorPickerAndShow({
+            r = r, g = g, b = b, hasOpacity = false,
+            swatchFunc = Changed, cancelFunc = Cancelled,
+        })
+    else
+        picker.hasOpacity = false
+        picker.func = Changed
+        picker.cancelFunc = Cancelled
+        picker:SetColorRGB(r, g, b)
+        picker:Hide() -- makes sure OnShow runs with the new colour
+        picker:Show()
+    end
+end
+
+-- A colour swatch; clicking it opens the colour picker.
+local function CreateColor(page, prefix, text, x, y)
+    local keyR, keyG, keyB = prefix .. "R", prefix .. "G", prefix .. "B"
+    local button = CreateFrame("Button", nil, page)
+    button:SetSize(34, 18)
+    button:SetPoint("TOPLEFT", x, y - 4)
+    local fill = AddBox(button)
+    local label = button:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    label:SetPoint("LEFT", button, "RIGHT", 8, 0)
+    label:SetText(text)
+    button:SetHitRectInsets(0, -label:GetStringWidth() - 10, 0, 0)
+
+    button.Refresh = function()
+        local db = ns.db
+        fill:SetVertexColor(db[keyR], db[keyG], db[keyB], 1)
+    end
+    button:SetScript("OnClick", function()
+        local db = ns.db
+        PickColor(db[keyR], db[keyG], db[keyB], function(r, g, b)
+            db[keyR], db[keyG], db[keyB] = r, g, b
+            button:Refresh()
+            ns:RefreshAll()
+        end)
+    end)
+    return button, 30
+end
+
+local function CreateButton(page, text, onClick, x, y, panel)
+    local button = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
+    button:SetSize(150, 22)
+    button:SetPoint("TOPLEFT", x, y - 4)
     button:SetText(text)
     button:SetScript("OnClick", function() onClick(panel) end)
     button.Refresh = function() end
-    return button, 32
+    return button, 30
 end
 
 -- Panel ------------------------------------------------------------------------
+
+-- Fill one tab's page with its two columns of sections.
+local function BuildPage(panel, page, columns, widgets)
+    for columnIndex, column in ipairs(columns) do
+        local x = (columnIndex - 1) * (COLUMN_WIDTH + 30)
+        local y = 0
+        for _, section in ipairs(column) do
+            y = y - CreateHeader(page, section.title, x, y)
+            for _, item in ipairs(section) do
+                local kind, widget, used = item[1]
+                if kind == "check" then
+                    widget, used = CreateCheckbox(page, item[2], item[3], x, y)
+                elseif kind == "slider" then
+                    widget, used = CreateSlider(page, item[2], item[3], item[4], item[5], item[6], x, y)
+                elseif kind == "dropdown" then
+                    widget, used = CreateDropdown(page, item[2], item[3], item[4], item[5], x, y)
+                elseif kind == "color" then
+                    widget, used = CreateColor(page, item[2], item[3], x, y)
+                else
+                    widget, used = CreateButton(page, item[2], item[3], x, y, panel)
+                end
+                widgets[#widgets + 1] = widget
+                y = y - used
+            end
+            y = y - 14 -- space between sections
+        end
+    end
+end
 
 function ns:CreateOptions()
     if self.optionsPanel then return end
@@ -269,31 +376,55 @@ function ns:CreateOptions()
 
     local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     sub:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 10, 1)
-    sub:SetText("Changes apply instantly. Type /kui for commands.")
+    sub:SetText("Changes apply instantly. Type /kui test to preview them on sample plates.")
 
-    local widgets = {}
-    for columnIndex, column in ipairs(Layout()) do
-        local x = 16 + (columnIndex - 1) * (COLUMN_WIDTH + 30)
-        local y = -48
-        for _, section in ipairs(column) do
-            y = y - CreateHeader(panel, section.title, x, y)
-            for _, item in ipairs(section) do
-                local kind, widget, used = item[1]
-                if kind == "check" then
-                    widget, used = CreateCheckbox(panel, item[2], item[3], x, y)
-                elseif kind == "slider" then
-                    widget, used = CreateSlider(panel, item[2], item[3], item[4], item[5], item[6], x, y)
-                elseif kind == "dropdown" then
-                    widget, used = CreateDropdown(panel, item[2], item[3], item[4], item[5], x, y)
-                else
-                    widget, used = CreateButton(panel, item[2], item[3], x, y)
-                end
-                widgets[#widgets + 1] = widget
-                y = y - used
-            end
-            y = y - 12 -- space between sections
+    -- Tab row, with a thin rule under it.
+    local rule = panel:CreateTexture(nil, "ARTWORK")
+    rule:SetTexture(SOLID)
+    rule:SetVertexColor(1, 1, 1, 0.12)
+    rule:SetHeight(1)
+    rule:SetPoint("TOPLEFT", 16, -70)
+    rule:SetWidth(COLUMN_WIDTH * 2 + 30)
+
+    local widgets, tabs = {}, {}
+    local function SelectTab(index)
+        for i, tab in ipairs(tabs) do
+            local selected = i == index
+            tab.page:SetShown(selected)
+            tab.mark:SetShown(selected)
+            if selected then tab.label:SetTextColor(1, 0.82, 0) else tab.label:SetTextColor(0.75, 0.75, 0.75) end
         end
     end
+
+    local tabX = 16
+    for index, info in ipairs(Pages()) do
+        local tab = CreateFrame("Button", nil, panel)
+        tab.label = tab:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        tab.label:SetPoint("CENTER")
+        tab.label:SetText(info.name)
+        tab:SetSize(tab.label:GetStringWidth() + 24, 24)
+        tab:SetPoint("TOPLEFT", tabX, -46)
+        tabX = tabX + tab:GetWidth() + 4
+        local hover = tab:CreateTexture(nil, "HIGHLIGHT")
+        hover:SetTexture(SOLID)
+        hover:SetVertexColor(1, 1, 1, 0.06)
+        hover:SetAllPoints(tab)
+        tab.mark = tab:CreateTexture(nil, "OVERLAY")
+        tab.mark:SetTexture(SOLID)
+        tab.mark:SetVertexColor(1, 0.82, 0, 1)
+        tab.mark:SetHeight(2)
+        tab.mark:SetPoint("BOTTOMLEFT", 0, -1)
+        tab.mark:SetPoint("BOTTOMRIGHT", 0, -1)
+
+        tab.page = CreateFrame("Frame", nil, panel)
+        tab.page:SetPoint("TOPLEFT", 16, -88)
+        tab.page:SetSize(COLUMN_WIDTH * 2 + 30, 400)
+        BuildPage(panel, tab.page, info, widgets)
+
+        tab:SetScript("OnClick", function() SelectTab(index) end)
+        tabs[index] = tab
+    end
+    SelectTab(1)
 
     panel.Refresh = function()
         for _, widget in ipairs(widgets) do widget:Refresh() end

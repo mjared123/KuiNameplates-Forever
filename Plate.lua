@@ -312,13 +312,13 @@ function Plate:ApplyLayout()
     end
     self.health:SetSize(db.width, db.height)
     self.name:SetWidth(db.width + 60)
-    self.title:SetFont(FONT, db.nameSize, "OUTLINE")
+    self.title:SetFont(FONT, db.titleSize, "OUTLINE")
+    self.title:SetTextColor(db.titleR, db.titleG, db.titleB)
     self.title:SetWidth(db.width + 60)
     self:PlaceName()
-    local small = math.max(db.nameSize - 2, 7)
-    self.level:SetFont(FONT, small, "OUTLINE")
-    self.healthText:SetFont(FONT, small, "OUTLINE")
-    self.cast.text:SetFont(FONT, math.max(db.nameSize - 1, 7), "OUTLINE")
+    self.level:SetFont(FONT, db.infoSize, "OUTLINE")
+    self.healthText:SetFont(FONT, db.infoSize, "OUTLINE")
+    self.cast.text:SetFont(FONT, db.castTextSize, "OUTLINE")
     self:LayoutCast()
     self:PlaceAuras()
 end
@@ -389,20 +389,24 @@ end
 
 -- The name overlaps the top edge of the bar. With no bar it takes the bar's place.
 function Plate:PlaceName()
+    local db = ns.db
     local name, title = self.name, self.title
-    -- A name standing on its own is drawn one size larger than one on a bar.
-    name:SetFont(FONT, ns.db.nameSize + (self.nameOnly and 1 or 0), "OUTLINE")
+    -- Names on a bar and names standing on their own have separate sizes.
+    name:SetFont(FONT, self.nameOnly and db.friendNameSize or db.nameSize, "OUTLINE")
     name:ClearAllPoints()
     title:ClearAllPoints()
     if self.nameOnly and self.hasTitle then
-        -- Title lowest, close to the unit's head, with the name tight above it.
-        title:SetPoint("BOTTOM", self, "BOTTOM", 0, ns.db.nameOnlyOffset or 0)
-        name:SetPoint("BOTTOM", title, "TOP", 0, -2)
+        -- Title lowest, close to the unit's head, with the name above it. A
+        -- gap of 0 has the two lines just touching.
+        title:SetPoint("BOTTOM", self, "BOTTOM", 0, db.nameOnlyOffset or 0)
+        name:SetPoint("BOTTOM", title, "TOP", 0, (db.titleSpacing or 0) - 2)
     elseif self.nameOnly then
         -- Sit low on the plate, close to the unit's head.
-        name:SetPoint("BOTTOM", self, "BOTTOM", 0, ns.db.nameOnlyOffset or 0)
+        name:SetPoint("BOTTOM", self, "BOTTOM", 0, db.nameOnlyOffset or 0)
     else
-        name:SetPoint("BOTTOM", self.health, "TOP", 0, -math.floor(ns.db.nameSize * 0.36 + 0.5))
+        -- Overlapping the top edge of the bar, plus the chosen nudge.
+        name:SetPoint("BOTTOM", self.health, "TOP", 0,
+            (db.nameOffset or 0) - math.floor(db.nameSize * 0.36 + 0.5))
     end
 end
 
