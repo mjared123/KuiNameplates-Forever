@@ -21,6 +21,7 @@ local SLIDERS = {
     { key = "height",         label = "Bar height",           min = 4,  max = 40,  step = 1 },
     { key = "castHeight",     label = "Cast bar height",      min = 2,  max = 20,  step = 1 },
     { key = "nameSize",       label = "Name font size",       min = 6,  max = 24,  step = 1 },
+    { key = "nameOnlyOffset", label = "Friendly name height",  min = -40, max = 60, step = 1 },
     { key = "nonTargetAlpha", label = "Non-target opacity",   min = 0,  max = 1,   step = 0.05 },
     { key = "auraWidth",      label = "Debuff icon size",     min = 12, max = 40,  step = 1 },
     { key = "auraOffset",     label = "Debuff distance from bar", min = -20, max = 40, step = 1 },
@@ -129,7 +130,7 @@ function ns:CreateOptions()
         widgets[#widgets + 1] = CreateCheckbox(panel, info, 16, -60 - (i - 1) * 30)
     end
     for i, info in ipairs(SLIDERS) do
-        widgets[#widgets + 1] = CreateSlider(panel, info, 330, -80 - (i - 1) * 46)
+        widgets[#widgets + 1] = CreateSlider(panel, info, 330, -76 - (i - 1) * 42)
     end
 
     -- Button that steps through the places the debuff icons can sit.

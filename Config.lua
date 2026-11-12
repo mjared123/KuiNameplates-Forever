@@ -25,6 +25,7 @@ local numbers = {
     alpha = { key = "nonTargetAlpha", min = 0, max = 1 },
     icons = { key = "auraWidth", min = 12, max = 40 },
     debuffoffset = { key = "auraOffset", min = -20, max = 40 },
+    friendlyheight = { key = "nameOnlyOffset", min = -40, max = 60 },
 }
 
 function ns:ResetSettings()
@@ -46,6 +47,7 @@ local function Help()
     print("  /kui icons <12-40>  - debuff icon size")
     print("  /kui debuffpos top|topleft|bottom|left|right  - where debuff icons sit")
     print("  /kui debuffoffset <n>  - move debuff icons further from the bar")
+    print("  /kui friendlyheight <n>  - raise or lower friendly names")
     print("  /kui class|tank|level|hp|cast|debuffs|friendly|colors|minimap  - toggle features")
     print("  /kui reset  - restore defaults")
 end

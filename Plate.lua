@@ -320,7 +320,8 @@ function Plate:PlaceName()
     local name = self.name
     name:ClearAllPoints()
     if self.nameOnly then
-        name:SetPoint("CENTER", self.health, "CENTER", 0, 0)
+        -- Sit low on the plate, close to the unit's head.
+        name:SetPoint("BOTTOM", self, "BOTTOM", 0, ns.db.nameOnlyOffset or 0)
     else
         name:SetPoint("BOTTOM", self.health, "TOP", 0, -math.floor(ns.db.nameSize * 0.36 + 0.5))
     end
