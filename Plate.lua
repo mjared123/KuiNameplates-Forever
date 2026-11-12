@@ -765,9 +765,10 @@ local function ColorBorder(item, unit)
     if not border then return end
     local aura = lastAura[item]
     if ns.db.auraColors and aura then
-        local dispel = aura.dispelName
-        if IsSecret(dispel) then
-            if unit and pcall(SetHiddenTypeColor, border, unit, aura.auraInstanceID) then return end
+        -- Even reading these fields can be refused in combat.
+        local ok, dispel, id = pcall(function() return aura.dispelName, aura.auraInstanceID end)
+        if not ok or IsSecret(dispel) then
+            if unit and ok and pcall(SetHiddenTypeColor, border, unit, id) then return end
         elseif dispel ~= nil then
             local c = DISPEL_COLORS[dispel]
             if c then
@@ -881,6 +882,21 @@ local function ShownChildren(list, into)
     return into
 end
 
+local function PlaceList(list, plate, auraScale)
+    if not list then return end
+    list:ClearAllPoints()
+    list:SetPoint("BOTTOM", plate.health, "TOP", 0, (ns.db.nameSize + 3) / auraScale)
+end
+
+-- The game sets these again each time it fills an icon.
+local function ResetCooldownLook(item)
+    local cd = item.Cooldown
+    if not cd then return end
+    cd:SetDrawSwipe(false)
+    cd:SetDrawEdge(false)
+    cd:SetHideCountdownNumbers(false)
+end
+
 -- Restyle, colour and position every icon the game is showing in borrowed rows.
 local function ArrangeAuras(auras)
     local plate = auraPlates[auras]
@@ -890,25 +906,25 @@ local function ArrangeAuras(auras)
     local fontSize = math.floor(db.nameSize / auraScale + 0.5)
     local debuffs = ShownChildren(auras.DebuffListFrame, {})
     local others = ShownChildren(auras.CrowdControlListFrame, ShownChildren(auras.BuffListFrame, {}))
+    local spot = db.auraSpot or "top"
+    local side = spot == "right" and "left" or "right"
+
+    -- Each step is protected on its own, so a failure in one (for example
+    -- the game refusing a colour lookup) can never leave icons misplaced.
+    -- Baseline: put the game's debuff row itself above the name.
+    Try(PlaceList, auras.DebuffListFrame, plate, auraScale)
+    -- Then place every icon exactly.
+    Try(table.sort, debuffs, ByLayoutIndex)
+    Try(LayoutIcons, plate, debuffs, spot, auraScale)
+    -- Enemy buffs and crowd control go beside the bar, away from the debuffs.
+    Try(LayoutIcons, plate, others, side, auraScale)
     for _, items in ipairs({ debuffs, others }) do
         for _, item in ipairs(items) do
-            StyleIcon(item, fontSize)
-            ColorBorder(item, plate.unit)
-            local cd = item.Cooldown
-            if cd then
-                -- The game sets these again each time it fills an icon.
-                cd:SetDrawSwipe(false)
-                cd:SetDrawEdge(false)
-                cd:SetHideCountdownNumbers(false)
-            end
+            Try(StyleIcon, item, fontSize)
+            Try(ResetCooldownLook, item)
+            Try(ColorBorder, item, plate.unit)
         end
     end
-    table.sort(debuffs, ByLayoutIndex)
-    local spot = db.auraSpot or "top"
-    LayoutIcons(plate, debuffs, spot, auraScale)
-    -- Enemy buffs and crowd control go beside the bar, away from the debuffs.
-    local side = spot == "right" and "left" or "right"
-    LayoutIcons(plate, others, side, auraScale)
     -- The single large crowd control icon shown on enemy players sits just
     -- past those, instead of where the game's hidden plate would put it.
     local control = auras.LossOfControlFrame

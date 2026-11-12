@@ -175,6 +175,11 @@ function ns:CreateOptions()
 end
 
 function ns:OpenOptions()
+    -- The game does not let addons open its settings window during combat.
+    if InCombatLockdown() then
+        ns.Print("the settings panel can't be opened in combat. Try again after the fight.")
+        return
+    end
     self:CreateOptions()
     if Settings and Settings.OpenToCategory and self.optionsCategory then
         Settings.OpenToCategory(self.optionsCategory:GetID())
