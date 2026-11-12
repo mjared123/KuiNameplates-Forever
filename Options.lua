@@ -27,6 +27,7 @@ local function Layout()
               { "check", "showLevel", "Show level" },
               { "check", "tankMode", "Tank mode (colour bars by threat)" },
               { "check", "nameOnly", "Friendly units: name only, no bar" },
+              { "check", "showTitle", "Show NPC titles and guild names" },
               { "slider", "nameOnlyOffset", "Friendly name height", -40, 60, 1 },
             },
         },

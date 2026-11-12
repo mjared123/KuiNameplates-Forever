@@ -5,7 +5,7 @@
 - Darker, muted bar colours, with the empty part of the bar a dark shade of the same colour.
 - The name now sits on the top edge of the bar; level and health percent sit on the bottom edge.
 - New soft glow: blue on your target, red or orange for threat, and a faint shadow on everything else. Replaces the white box.
-- Friendly units show as a coloured name with no bar (toggle in settings or `/kui friendly`).
+- Friendly units show as a coloured name with no bar (toggle in settings or `/kui friendly`), with the NPC's title or the player's guild on a second line (`/kui titles`).
 - Debuff icons are short, wide and thin-bordered, with the time left as a yellow number on the corner. Each icon is placed by the addon, so they always line up.
 - Debuff borders can be coloured by type: blue magic, purple curse, brown disease, green poison, red bleed (toggle in settings or `/kui colors`).
 - Debuff position: above (centred or from the left), below, or left or right of the bar, plus a distance setting (`/kui debuffpos`, `/kui debuffoffset`).

@@ -265,6 +265,12 @@ function ns:CreatePlate(nameplate)
     plate.name = text:CreateFontString(nil, "OVERLAY")
     plate.name:SetWordWrap(false)
 
+    -- Second line under a friendly name: an NPC's title or a player's guild.
+    plate.title = text:CreateFontString(nil, "OVERLAY")
+    plate.title:SetWordWrap(false)
+    plate.title:SetTextColor(0.86, 0.86, 0.86)
+    plate.title:Hide()
+
     -- Level and health percent straddle the bottom edge of the bar.
     plate.level = health:CreateFontString(nil, "OVERLAY")
     plate.level:SetPoint("LEFT", health, "BOTTOMLEFT", 2, 1)
@@ -303,6 +309,8 @@ function Plate:ApplyLayout()
     self.health:SetSize(db.width, db.height)
     self.name:SetFont(FONT, db.nameSize, "OUTLINE")
     self.name:SetWidth(db.width + 60)
+    self.title:SetFont(FONT, math.max(db.nameSize - 1, 7), "OUTLINE")
+    self.title:SetWidth(db.width + 60)
     self:PlaceName()
     local small = math.max(db.nameSize - 2, 7)
     self.level:SetFont(FONT, small, "OUTLINE")
@@ -317,9 +325,14 @@ end
 
 -- The name overlaps the top edge of the bar. With no bar it takes the bar's place.
 function Plate:PlaceName()
-    local name = self.name
+    local name, title = self.name, self.title
     name:ClearAllPoints()
-    if self.nameOnly then
+    title:ClearAllPoints()
+    if self.nameOnly and self.hasTitle then
+        -- Title lowest, close to the unit's head, with the name above it.
+        title:SetPoint("BOTTOM", self, "BOTTOM", 0, ns.db.nameOnlyOffset or 0)
+        name:SetPoint("BOTTOM", title, "TOP", 0, 0)
+    elseif self.nameOnly then
         -- Sit low on the plate, close to the unit's head.
         name:SetPoint("BOTTOM", self, "BOTTOM", 0, ns.db.nameOnlyOffset or 0)
     else
@@ -479,6 +492,38 @@ local function ThreatStatus(unit)
     return Plain(UnitThreatSituation("player", unit))
 end
 
+-- The line shown under a friendly name: "<Guild>" for players, and for NPCs
+-- the title from the second line of their tooltip ("Flight Master"). Returns
+-- nil when there is none or the game is hiding it.
+local function GetSubtitle(unit)
+    if Plain(UnitIsPlayer(unit)) then
+        local guild = GetGuildInfo and Plain(GetGuildInfo(unit))
+        if type(guild) == "string" and guild ~= "" then return "<" .. guild .. ">" end
+        return nil
+    end
+    if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then return nil end
+    local ok, data = pcall(C_TooltipInfo.GetUnit, unit)
+    if not ok or type(data) ~= "table" or IsSecret(data) then return nil end
+    local okLine, text = pcall(function() return data.lines[2].leftText end)
+    text = okLine and Plain(text)
+    if type(text) ~= "string" or text == "" then return nil end
+    -- With no title, the second line is the level line instead.
+    local levelWord = type(LEVEL) == "string" and LEVEL or "Level"
+    if text:find(levelWord, 1, true) then return nil end
+    return text
+end
+
+function Plate:UpdateTitle()
+    local text = self.nameOnly and ns.db.showTitle and GetSubtitle(self.unit) or nil
+    local has = text ~= nil
+    if has then self.title:SetText(text) end
+    self.title:SetShown(has)
+    if has ~= self.hasTitle then
+        self.hasTitle = has
+        self:PlaceName()
+    end
+end
+
 -- Friendly units can be shown as just a coloured name, with no bar.
 function Plate:UpdateMode()
     local unit, db = self.unit, ns.db
@@ -490,6 +535,7 @@ function Plate:UpdateMode()
         self:PlaceName()
         if nameOnly then self.cast:Hide() end
     end
+    Try(self.UpdateTitle, self)
     if not nameOnly then
         self.name:SetTextColor(1, 1, 1)
         return

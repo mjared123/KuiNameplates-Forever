@@ -9,6 +9,7 @@ ns.defaults = {
     nameSize = 11,        -- name font size
     scale = 1,            -- overall plate size multiplier
     nameOnly = true,      -- friendly units show a coloured name and no bar
+    showTitle = true,     -- NPC titles and guild names under friendly names
     nameOnlyOffset = 0,   -- height of those names above the bottom of the plate
     nonTargetAlpha = 0.5, -- alpha of other plates while you have a target
     classColors = true,   -- colour enemy players by class
