@@ -907,7 +907,23 @@ local function ArrangeAuras(auras)
     local spot = db.auraSpot or "top"
     LayoutIcons(plate, debuffs, spot, auraScale)
     -- Enemy buffs and crowd control go beside the bar, away from the debuffs.
-    LayoutIcons(plate, others, spot == "right" and "left" or "right", auraScale)
+    local side = spot == "right" and "left" or "right"
+    LayoutIcons(plate, others, side, auraScale)
+    -- The single large crowd control icon shown on enemy players sits just
+    -- past those, instead of where the game's hidden plate would put it.
+    local control = auras.LossOfControlFrame
+    if control then
+        local scale = Plain(control:GetScale()) or 1
+        if scale <= 0 then scale = 1 end
+        local gap = (5 / auraScale + math.min(#others, 3) * (GAME_ICON_SIZE + ICON_GAP)) / scale
+        control:ClearAllPoints()
+        if side == "right" then
+            control:SetPoint("LEFT", plate.health, "RIGHT", gap, 0)
+        else
+            gap = gap + (ns.db.height + ns.db.castHeight + 4) / auraScale / scale
+            control:SetPoint("RIGHT", plate.health, "LEFT", -gap, 0)
+        end
+    end
 end
 
 function Plate:PlaceAuras()
