@@ -350,15 +350,16 @@ function Plate:LayoutCast()
         icon:SetTexCoord(0.08, 0.92, 0.29, 0.71)
         text:SetPoint("CENTER", cast, "BOTTOM", 0, -1)
     elseif style == "tall" then
-        -- A taller bar under the health bar, the icon at its left end and
-        -- the spell name inside it.
+        -- A taller bar under the health bar with the spell name inside it,
+        -- and a square icon to the left as tall as both bars together.
         height = db.castHeight + 11
-        icon:SetSize(height, height)
-        icon:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -3)
-        icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
-        cast:SetPoint("TOPLEFT", health, "BOTTOMLEFT", height + 3, -3)
+        cast:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -3)
         cast:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT", 0, -3)
         cast:SetHeight(height)
+        icon:SetPoint("TOPRIGHT", health, "TOPLEFT", -3, 0)
+        icon:SetPoint("BOTTOMRIGHT", cast, "BOTTOMLEFT", -3, 0)
+        icon:SetWidth(db.height + height + 3)
+        icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
         text:SetPoint("CENTER", cast, "CENTER", 0, 0)
     else
         -- A thin bar under the health bar, a square icon to the left of
