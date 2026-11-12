@@ -9,6 +9,7 @@
 - Debuff icons are short, wide and thin-bordered, with the time left as a yellow number on the corner. Each icon is placed by the addon, so they always line up.
 - Debuff borders can be coloured by type: blue magic, purple curse, brown disease, green poison, red bleed (toggle in settings or `/kui colors`).
 - Debuff position: above (centred or from the left), below, or left or right of the bar, plus a distance setting (`/kui debuffpos`, `/kui debuffoffset`).
+- Minimap button: click opens the settings, drag moves it (toggle in settings or `/kui minimap`).
 - Cast bars: thin pale bar under the health bar with a bright spark on the leading edge, square spell icon to the left of both bars, spell name underneath.
 - Debuffs now show in combat. WoW: Forever blocks addons from reading auras during combat, so the icons are the game's own nameplate debuff row, moved onto the plate above the name. The addon turns on the game's "show debuffs on enemy nameplates" and "show all my debuffs" settings so the row is filled. The "Max debuff icons" setting is gone; "Debuff icon size" still works.
 

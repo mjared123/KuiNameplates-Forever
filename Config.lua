@@ -14,6 +14,7 @@ local toggles = {
     debuffs = { key = "auras", label = "Debuff icons" },
     friendly = { key = "nameOnly", label = "Name only on friendly units" },
     colors = { key = "auraColors", label = "Debuff borders coloured by type" },
+    minimap = { key = "minimapButton", label = "Minimap button" },
 }
 
 local numbers = {
@@ -45,7 +46,7 @@ local function Help()
     print("  /kui icons <12-40>  - debuff icon size")
     print("  /kui debuffpos top|topleft|bottom|left|right  - where debuff icons sit")
     print("  /kui debuffoffset <n>  - move debuff icons further from the bar")
-    print("  /kui class|tank|level|hp|cast|debuffs|friendly|colors  - toggle features")
+    print("  /kui class|tank|level|hp|cast|debuffs|friendly|colors|minimap  - toggle features")
     print("  /kui reset  - restore defaults")
 end
 

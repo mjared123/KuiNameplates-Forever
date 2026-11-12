@@ -11,6 +11,7 @@ local CHECKBOXES = {
     { key = "tankMode",    label = "Tank mode (colour bars by threat)" },
     { key = "nameOnly",    label = "Friendly units: name only, no bar" },
     { key = "auraColors",  label = "Debuff borders coloured by type (poison, curse...)" },
+    { key = "minimapButton", label = "Show minimap button" },
 }
 
 local SLIDERS = {

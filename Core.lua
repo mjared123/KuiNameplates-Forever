@@ -21,6 +21,8 @@ ns.defaults = {
     auraWidth = 20,       -- debuff icon size
     auraSpot = "top",     -- where debuff icons sit: top, topleft, bottom, left, right
     auraOffset = 0,       -- extra distance of the debuff icons from the bar
+    minimapButton = true, -- show the minimap button
+    minimapAngle = 215,   -- its place around the minimap, in degrees
     auraColors = true,    -- colour debuff borders by type (poison, curse, ...)
     maxDistance = nil,    -- nameplateMaxDistance CVar; nil leaves the game's value
 }
@@ -135,6 +137,7 @@ function ns:PLAYER_LOGIN()
     self:ApplyCVars()
     self:ApplyAuraCVars()
     if self.CreateOptions then self:CreateOptions() end
+    if self.UpdateMinimapButton then self:UpdateMinimapButton() end
 end
 
 function ns:NAME_PLATE_UNIT_ADDED(unit)
@@ -174,6 +177,7 @@ function ns:RefreshAll()
         plate:UpdateAll()
     end
     self:ApplyAuraCVars()
+    if self.UpdateMinimapButton then self:UpdateMinimapButton() end
 end
 
 events:RegisterEvent("ADDON_LOADED")
