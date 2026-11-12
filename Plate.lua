@@ -33,9 +33,9 @@ local GLOW_THREAT_LOW = { 1.00, 0.55, 0.10, 1 }
 local GLOW_SHADOW = { 0, 0, 0, 0.55 }
 
 -- Name colours for friendly units shown as a name with no bar.
-local NAME_FRIENDLY = { 0.55, 0.95, 0.55 }
+local NAME_FRIENDLY = { 0.64, 0.97, 0.66 } -- pale mint
 local NAME_NEUTRAL  = { 1.00, 0.90, 0.45 }
-local NAME_PLAYER   = { 0.62, 0.72, 1.00 }
+local NAME_PLAYER   = { 0.66, 0.68, 1.00 } -- lilac
 
 local COLOR_CAST        = { 0.62, 0.62, 0.78 } -- pale grey-lilac
 local COLOR_CHANNEL     = { 0.62, 0.62, 0.78 }
@@ -268,8 +268,13 @@ function ns:CreatePlate(nameplate)
     -- Second line under a friendly name: an NPC's title or a player's guild.
     plate.title = text:CreateFontString(nil, "OVERLAY")
     plate.title:SetWordWrap(false)
-    plate.title:SetTextColor(0.86, 0.86, 0.86)
+    plate.title:SetTextColor(0.84, 0.84, 0.82)
     plate.title:Hide()
+    -- A hard drop shadow on top of the outline keeps both lines crisp.
+    for _, fs in ipairs({ plate.name, plate.title }) do
+        fs:SetShadowColor(0, 0, 0, 1)
+        fs:SetShadowOffset(1, -1)
+    end
 
     -- Level and health percent straddle the bottom edge of the bar.
     plate.level = health:CreateFontString(nil, "OVERLAY")
@@ -307,9 +312,8 @@ function Plate:ApplyLayout()
         if parentScale and parentScale > 0 then self:SetScale(scale / parentScale) end
     end
     self.health:SetSize(db.width, db.height)
-    self.name:SetFont(FONT, db.nameSize, "OUTLINE")
     self.name:SetWidth(db.width + 60)
-    self.title:SetFont(FONT, math.max(db.nameSize - 1, 7), "OUTLINE")
+    self.title:SetFont(FONT, db.nameSize, "OUTLINE")
     self.title:SetWidth(db.width + 60)
     self:PlaceName()
     local small = math.max(db.nameSize - 2, 7)
@@ -326,12 +330,14 @@ end
 -- The name overlaps the top edge of the bar. With no bar it takes the bar's place.
 function Plate:PlaceName()
     local name, title = self.name, self.title
+    -- A name standing on its own is drawn one size larger than one on a bar.
+    name:SetFont(FONT, ns.db.nameSize + (self.nameOnly and 1 or 0), "OUTLINE")
     name:ClearAllPoints()
     title:ClearAllPoints()
     if self.nameOnly and self.hasTitle then
-        -- Title lowest, close to the unit's head, with the name above it.
+        -- Title lowest, close to the unit's head, with the name tight above it.
         title:SetPoint("BOTTOM", self, "BOTTOM", 0, ns.db.nameOnlyOffset or 0)
-        name:SetPoint("BOTTOM", title, "TOP", 0, 0)
+        name:SetPoint("BOTTOM", title, "TOP", 0, -2)
     elseif self.nameOnly then
         -- Sit low on the plate, close to the unit's head.
         name:SetPoint("BOTTOM", self, "BOTTOM", 0, ns.db.nameOnlyOffset or 0)
@@ -623,6 +629,9 @@ function Plate:UpdateTarget()
     self.isTarget = (targetPlate == self.nameplate)
     if self.isTarget or not UnitExists("target") then
         self:SetAlpha(1)
+    elseif self.nameOnly then
+        -- Bare names stay readable instead of fading with the bars.
+        self:SetAlpha(math.max(ns.db.nonTargetAlpha, 0.9))
     else
         self:SetAlpha(ns.db.nonTargetAlpha)
     end
