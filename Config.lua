@@ -21,7 +21,7 @@ local numbers = {
     font = { key = "nameSize", min = 6, max = 24 },
     scale = { key = "scale", min = 0.5, max = 2 },
     alpha = { key = "nonTargetAlpha", min = 0, max = 1 },
-    icons = { key = "maxAuras", min = 0, max = 10 },
+    icons = { key = "auraWidth", min = 12, max = 40 },
 }
 
 function ns:ResetSettings()
@@ -40,7 +40,7 @@ local function Help()
     print("  /kui width|height|font <n>  - bar size and name font size")
     print("  /kui scale <0.5-2>  - overall plate size")
     print("  /kui alpha <0-1>  - transparency of non-target plates")
-    print("  /kui icons <n>  - max debuff icons per plate")
+    print("  /kui icons <12-40>  - debuff icon size")
     print("  /kui class|tank|level|hp|cast|debuffs|friendly  - toggle features")
     print("  /kui reset  - restore defaults")
 end

@@ -7,7 +7,7 @@
 - New soft glow: blue on your target, red or orange for threat, and a faint shadow on everything else. Replaces the white box.
 - Friendly units show as a coloured name with no bar (toggle in settings or `/kui friendly`).
 - Cast bars: thin pale bar under the health bar with a bright spark on the leading edge, square spell icon to the left of both bars, spell name underneath.
-- Debuff timers show as a small number on the corner of each icon.
+- Debuffs now show in combat. WoW: Forever blocks addons from reading auras during combat, so the icons are the game's own nameplate debuff row, moved onto the plate above the name. The addon turns on the game's "show debuffs on enemy nameplates" and "show all my debuffs" settings so the row is filled. The "Max debuff icons" setting is gone; "Debuff icon size" still works.
 
 ## v0.2.0
 - Fixed: errors on WoW: Forever, which hides enemy health and other numbers from addons. Hidden values now go straight to the bars, and percent text comes from the game's own percent API.

@@ -47,7 +47,7 @@ local COLOR_INTERRUPTED = { 0.80, 0.20, 0.16 }
 local UNIT_EVENTS = {
     "UNIT_HEALTH", "UNIT_HEALTH_FREQUENT", "UNIT_MAXHEALTH",
     "UNIT_NAME_UPDATE", "UNIT_LEVEL", "UNIT_FACTION", "UNIT_CLASSIFICATION_CHANGED",
-    "UNIT_THREAT_SITUATION_UPDATE", "UNIT_THREAT_LIST_UPDATE", "UNIT_AURA",
+    "UNIT_THREAT_SITUATION_UPDATE", "UNIT_THREAT_LIST_UPDATE",
     "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
     "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED",
     "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE", "UNIT_SPELLCAST_CHANNEL_STOP",
@@ -254,7 +254,6 @@ function ns:CreatePlate(nameplate)
     cast:Hide()
     plate.cast = cast
 
-    plate.auraButtons = {}
     plate.pending = {}
 
     -- Text sits on its own frame above the bars so nothing draws over it.
@@ -313,10 +312,7 @@ function Plate:ApplyLayout()
     self.cast.sparkGlow:SetHeight(db.castHeight + 2)
     self.cast.text:SetFont(FONT, math.max(db.nameSize - 1, 7), "OUTLINE")
     self.cast.icon:SetWidth(db.height + db.castHeight + 3)
-    for _, button in ipairs(self.auraButtons) do
-        button:SetSize(db.auraWidth, math.floor(db.auraWidth * 0.65 + 0.5))
-        button.count:SetFont(FONT, small, "OUTLINE")
-    end
+    self:PlaceAuras()
 end
 
 -- The name overlaps the top edge of the bar. With no bar it takes the bar's place.
@@ -353,6 +349,7 @@ end
 
 function Plate:OnUnitRemoved()
     self:UnregisterAllEvents()
+    Try(self.DetachAuras, self)
     self.unit = nil
     self.cast:Hide()
     self:Hide()
@@ -362,8 +359,6 @@ function Plate:OnEvent(event)
     if not self.unit then return end
     if event == "UNIT_HEALTH" or event == "UNIT_HEALTH_FREQUENT" or event == "UNIT_MAXHEALTH" then
         ns:Queue(self, "health")
-    elseif event == "UNIT_AURA" then
-        ns:Queue(self, "auras")
     elseif CAST_EVENTS[event] then
         Try(self.UpdateCast, self)
     elseif event == "UNIT_SPELLCAST_INTERRUPTED" then
@@ -387,7 +382,7 @@ function Plate:UpdateAll()
     Try(self.UpdateRaidIcon, self)
     Try(self.UpdateTarget, self)
     Try(self.UpdateCast, self)
-    Try(self.UpdateAuras, self)
+    Try(self.AttachAuras, self)
 end
 
 function Plate:UpdateName()
@@ -684,120 +679,61 @@ function Plate:ShowInterrupted()
     cast:Show()
 end
 
--- Auras ----------------------------------------------------------------------
+-- Debuffs --------------------------------------------------------------------
+--
+-- While combat restrictions are active, WoW: Forever refuses addons any aura
+-- data at all (C_UnitAuras calls raise an error), so this addon cannot draw
+-- debuff icons itself. The game's own nameplate keeps a debuff row up to date
+-- for every unit, and its code is allowed to read auras. That row is borrowed:
+-- it is re-parented onto our plate and placed above the name. Only engine
+-- properties (parent, scale, anchors) are touched, never the game's own Lua
+-- data, so its code keeps running untainted.
 
--- One aura as a table (name, icon, applications, duration, expirationTime,
--- auraInstanceID), using whichever aura API this client has.
-local function GetAuraData(unit, index, filter)
-    if C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
-        return C_UnitAuras.GetAuraDataByIndex(unit, index, filter)
-    elseif UnitAura then
-        local name, icon, count, _, duration, expiration = UnitAura(unit, index, filter)
-        if not Has(name) then return nil end
-        return { name = name, icon = icon, applications = count,
-                 duration = duration, expirationTime = expiration }
-    end
-end
+local GAME_ICON_SIZE = 25 -- size the game draws its nameplate aura icons at
+local auraOwners = setmetatable({}, { __mode = "k" }) -- game unit frame -> our plate
+local hookedFrames = setmetatable({}, { __mode = "k" })
 
-function Plate:GetAuraButton(i)
-    local button = self.auraButtons[i]
-    if button then return button end
-    button = CreateFrame("Frame", nil, self)
+function Plate:PlaceAuras()
+    local auras = self.gameAuras
+    if not auras then return end
     local db = ns.db
-    button:SetSize(db.auraWidth, math.floor(db.auraWidth * 0.65 + 0.5))
-    AddBorder(button)
-    button.icon = button:CreateTexture(nil, "ARTWORK")
-    button.icon:SetAllPoints()
-    button.icon:SetTexCoord(0.1, 0.9, 0.25, 0.75) -- crop to the wide icon shape
-    button.cd = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
-    button.cd:SetAllPoints()
-    button.cd:SetReverse(true)
-    -- Time left as a small yellow number on the top-left corner. The game
-    -- draws the number itself, so hidden durations still work.
-    pcall(function()
-        button.cd:SetSwipeColor(0, 0, 0, 0.55)
-        button.cd:SetHideCountdownNumbers(false)
-        for _, region in ipairs({ button.cd:GetRegions() }) do
-            if region:GetObjectType() == "FontString" then
-                region:SetFont(FONT, math.max(db.nameSize - 1, 8), "OUTLINE")
-                region:SetTextColor(1, 0.85, 0.25)
-                region:ClearAllPoints()
-                region:SetPoint("TOPLEFT", button, "TOPLEFT", -3, 4)
-            end
-        end
-    end)
-    button.count = button:CreateFontString(nil, "OVERLAY")
-    button.count:SetFont(FONT, math.max(db.nameSize - 2, 7), "OUTLINE")
-    button.count:SetPoint("BOTTOMRIGHT", 2, -2)
-    self.auraButtons[i] = button
-    return button
-end
-
-local function SetAuraCount(button, unit, aura)
-    local count = Plain(aura.applications)
-    if count ~= nil or aura.auraInstanceID == nil then
-        button.count:SetText((count and count > 1) and count or "")
-        return
-    end
-    local get = C_UnitAuras and C_UnitAuras.GetAuraApplicationDisplayCount
-    if not (get and pcall(function()
-        button.count:SetText(get(unit, aura.auraInstanceID, 2, 99))
-    end)) then
-        button.count:SetText("")
+    local scale = db.auraWidth / GAME_ICON_SIZE
+    auras:SetScale(scale)
+    local list = auras.DebuffListFrame
+    if list then
+        list:ClearAllPoints()
+        -- Offsets are in the row's own scale, so convert from plate units.
+        list:SetPoint("BOTTOM", self.health, "TOP", 0, (db.nameSize + 3) / scale)
     end
 end
 
-local function SetAuraTimer(button, unit, aura)
-    local duration, expiration = Plain(aura.duration), Plain(aura.expirationTime)
-    if duration and expiration then
-        if duration > 0 then
-            button.cd:SetCooldown(expiration - duration, duration)
-            button.cd:Show()
-        else
-            button.cd:Hide()
-        end
-        return
+function Plate:AttachAuras()
+    self:DetachAuras()
+    if not ns.db.auras then return end
+    local frame = self.nameplate.UnitFrame
+    local auras = frame and frame.AurasFrame
+    if not auras or (auras.IsForbidden and auras:IsForbidden()) then return end
+    -- The game re-anchors the row whenever it lays its plate out again.
+    if not hookedFrames[frame] and frame.UpdateAnchors then
+        hookedFrames[frame] = true
+        hooksecurefunc(frame, "UpdateAnchors", function(f)
+            local owner = auraOwners[f]
+            if owner then Try(owner.PlaceAuras, owner) end
+        end)
     end
-    local get = C_UnitAuras and C_UnitAuras.GetAuraDuration
-    if get and aura.auraInstanceID ~= nil and button.cd.SetCooldownFromDurationObject
-        and pcall(function()
-            button.cd:SetCooldownFromDurationObject(get(unit, aura.auraInstanceID))
-        end) then
-        button.cd:Show()
-    else
-        button.cd:Hide()
-    end
+    auraOwners[frame] = self
+    self.gameFrame, self.gameAuras = frame, auras
+    auras:SetParent(self)
+    auras:SetFrameLevel(self.text:GetFrameLevel() + 1)
+    self:PlaceAuras()
 end
 
--- Your own debuffs on attackable units, in a centred row above the name.
-function Plate:UpdateAuras()
-    local unit, db = self.unit, ns.db
-    local shown = 0
-    if db.auras and db.maxAuras > 0 and Plain(UnitCanAttack("player", unit)) then
-        for i = 1, 40 do
-            local aura = GetAuraData(unit, i, "HARMFUL|PLAYER")
-            if not aura then break end
-            shown = shown + 1
-            local button = self:GetAuraButton(shown)
-            button.icon:SetTexture(aura.icon)
-            SetAuraCount(button, unit, aura)
-            SetAuraTimer(button, unit, aura)
-            button:Show()
-            if shown >= db.maxAuras then break end
-        end
-    end
-    for i = shown + 1, #self.auraButtons do
-        self.auraButtons[i]:Hide()
-    end
-    if shown == 0 then return end
-
-    local gap = 2
-    local total = shown * db.auraWidth + (shown - 1) * gap
-    local x = (db.width - total) / 2
-    for i = 1, shown do
-        local button = self.auraButtons[i]
-        button:ClearAllPoints()
-        button:SetPoint("BOTTOMLEFT", self.health, "TOPLEFT",
-            x + (i - 1) * (db.auraWidth + gap), db.nameSize + 3)
-    end
+-- Hand the row back to the game's frame, which is reused for other units.
+function Plate:DetachAuras()
+    local frame, auras = self.gameFrame, self.gameAuras
+    if not auras then return end
+    self.gameFrame, self.gameAuras = nil, nil
+    if auraOwners[frame] == self then auraOwners[frame] = nil end
+    auras:SetParent(frame)
+    auras:SetScale(1)
 end

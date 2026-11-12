@@ -20,7 +20,6 @@ local SLIDERS = {
     { key = "castHeight",     label = "Cast bar height",      min = 2,  max = 20,  step = 1 },
     { key = "nameSize",       label = "Name font size",       min = 6,  max = 24,  step = 1 },
     { key = "nonTargetAlpha", label = "Non-target opacity",   min = 0,  max = 1,   step = 0.05 },
-    { key = "maxAuras",       label = "Max debuff icons",     min = 0,  max = 10,  step = 1 },
     { key = "auraWidth",      label = "Debuff icon size",     min = 12, max = 40,  step = 1 },
 }
 

@@ -18,8 +18,7 @@ ns.defaults = {
     castHeight = 4,
     thinCast = true,      -- marks saved settings as already moved to the thin cast bar
     auras = true,         -- your debuffs on enemies
-    maxAuras = 6,
-    auraWidth = 22,
+    auraWidth = 20,       -- debuff icon size
     maxDistance = nil,    -- nameplateMaxDistance CVar; nil leaves the game's value
 }
 
@@ -41,7 +40,7 @@ events:SetScript("OnEvent", function(_, event, ...)
     if handler then handler(ns, ...) end
 end)
 
--- Coalesce frequent updates (health, auras) into at most one per plate per frame.
+-- Coalesce frequent health updates into at most one per plate per frame.
 -- With long nameplate ranges, dozens of plates can fire events every frame in big pulls.
 local queued = {}
 local driver = CreateFrame("Frame")
@@ -53,9 +52,8 @@ driver:SetScript("OnUpdate", function(self)
         local pending = plate.pending
         if plate.unit then
             if pending.health then ns.Try(plate.UpdateHealth, plate) end
-            if pending.auras then ns.Try(plate.UpdateAuras, plate) end
         end
-        pending.health, pending.auras = nil, nil
+        pending.health = nil
     end
 end)
 
@@ -79,6 +77,31 @@ end
 function ns:PLAYER_REGEN_ENABLED()
     events:UnregisterEvent("PLAYER_REGEN_ENABLED")
     self:ApplyCVars()
+    self:ApplyAuraCVars()
+end
+
+-- The debuff icons are drawn by the game's own nameplate code (see Plate.lua),
+-- so the game's settings decide what it draws. Make sure it shows debuffs on
+-- enemies, and all of your debuffs rather than a short built-in list.
+function ns:ApplyAuraCVars()
+    if not self.db.auras then return end
+    if InCombatLockdown() then
+        events:RegisterEvent("PLAYER_REGEN_ENABLED")
+        return
+    end
+    pcall(SetCVar, "nameplateShowAllPersonalAuras", "1")
+    pcall(function()
+        local npc = Enum.NamePlateEnemyNpcAuraDisplay.Debuffs
+        if not C_CVar.GetCVarBitfield("nameplateEnemyNpcAuraDisplay", npc) then
+            C_CVar.SetCVarBitfield("nameplateEnemyNpcAuraDisplay", npc, true)
+        end
+    end)
+    pcall(function()
+        local player = Enum.NamePlateEnemyPlayerAuraDisplay.Debuffs
+        if not C_CVar.GetCVarBitfield("nameplateEnemyPlayerAuraDisplay", player) then
+            C_CVar.SetCVarBitfield("nameplateEnemyPlayerAuraDisplay", player, true)
+        end
+    end)
 end
 
 function ns:ADDON_LOADED(name)
@@ -107,6 +130,7 @@ ns.UI_SCALE_CHANGED = ns.DISPLAY_SIZE_CHANGED
 
 function ns:PLAYER_LOGIN()
     self:ApplyCVars()
+    self:ApplyAuraCVars()
     if self.CreateOptions then self:CreateOptions() end
 end
 
@@ -146,6 +170,7 @@ function ns:RefreshAll()
     for _, plate in pairs(self.plates) do
         plate:UpdateAll()
     end
+    self:ApplyAuraCVars()
 end
 
 events:RegisterEvent("ADDON_LOADED")
