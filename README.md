@@ -1,9 +1,9 @@
-# ForeverPlates
+# KuiNameplates
 
-Clean, minimal nameplates for WoW: Forever: thin flat bars, the name above the bar, level and health inside it.
+Unofficial Kui-style nameplates for WoW: Forever. Not affiliated with Kesava's Kui Nameplates. Thin flat bars, the name above the bar, level and health inside it.
 
 ## Install
-Copy the `ForeverPlates` folder into the `Interface/AddOns/` folder of your WoW: Forever install and restart the game.
+Copy the `KuiNameplates` folder into the `Interface/AddOns/` folder of your WoW: Forever install and restart the game.
 
 ## Features
 - Reaction-coloured health bars, class colours for enemy players
@@ -17,10 +17,10 @@ Copy the `ForeverPlates` folder into the `Interface/AddOns/` folder of your WoW:
 - Batched updates so big pulls at long range stay smooth
 
 ## Settings
-`/fp config` opens the settings panel (also under Options > AddOns). `/fp` lists all slash commands.
+`/kui config` opens the settings panel (also under Options > AddOns). `/kui` lists all slash commands.
 
 ## Releasing
-1. Create the project on CurseForge and add `## X-Curse-Project-ID: <id>` to `ForeverPlates.toc`.
+1. Create the project on CurseForge and add `## X-Curse-Project-ID: <id>` to `KuiNameplates.toc`.
 2. Add a CurseForge API token as the `CF_API_KEY` secret in the GitHub repo settings.
 3. Update `CHANGELOG.md`, then push a tag such as `v0.1.0`. The Release workflow builds the zip and uploads it.
 

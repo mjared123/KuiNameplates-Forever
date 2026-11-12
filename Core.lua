@@ -1,4 +1,4 @@
--- ForeverPlates: core setup, saved settings and global events.
+-- KuiNameplates: core setup, saved settings and global events.
 local ADDON, ns = ...
 
 ns.plates = {} -- nameplate unit token -> our plate frame
@@ -28,7 +28,7 @@ local function CopyDefaults(src, dst)
 end
 
 function ns.Print(msg)
-    DEFAULT_CHAT_FRAME:AddMessage("|cff9fd5ffForeverPlates|r: " .. tostring(msg))
+    DEFAULT_CHAT_FRAME:AddMessage("|cff9fd5ffKuiNameplates|r: " .. tostring(msg))
 end
 
 local events = CreateFrame("Frame")
@@ -81,8 +81,8 @@ end
 function ns:ADDON_LOADED(name)
     if name ~= ADDON then return end
     events:UnregisterEvent("ADDON_LOADED")
-    ForeverPlatesDB = CopyDefaults(self.defaults, ForeverPlatesDB or {})
-    self.db = ForeverPlatesDB
+    KuiNameplatesForeverDB = CopyDefaults(self.defaults, KuiNameplatesForeverDB or {})
+    self.db = KuiNameplatesForeverDB
 
     events:RegisterEvent("PLAYER_LOGIN")
     events:RegisterEvent("NAME_PLATE_UNIT_ADDED")
@@ -100,7 +100,7 @@ function ns:NAME_PLATE_UNIT_ADDED(unit)
     local nameplate = C_NamePlate.GetNamePlateForUnit(unit)
     -- Friendly plates inside instances are forbidden to addons; leave them alone.
     if not nameplate or (nameplate.IsForbidden and nameplate:IsForbidden()) then return end
-    local plate = nameplate.ForeverPlate or self:CreatePlate(nameplate)
+    local plate = nameplate.KuiForeverPlate or self:CreatePlate(nameplate)
     self.plates[unit] = plate
     plate:OnUnitAdded(unit)
 end

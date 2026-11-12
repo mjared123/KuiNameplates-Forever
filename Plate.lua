@@ -1,4 +1,4 @@
--- ForeverPlates: building and updating a single nameplate.
+-- KuiNameplates: building and updating a single nameplate.
 local _, ns = ...
 
 local BAR = "Interface\\Buttons\\WHITE8X8"
@@ -131,7 +131,7 @@ function ns:CreatePlate(nameplate)
     plate:SetScript("OnEvent", plate.OnEvent)
     plate:ApplyLayout()
 
-    nameplate.ForeverPlate = plate
+    nameplate.KuiForeverPlate = plate
     ns.allPlates = ns.allPlates or {}
     ns.allPlates[plate] = true
     return plate
@@ -157,9 +157,9 @@ end
 local function HideBlizzard(nameplate)
     local uf = nameplate.UnitFrame
     if not uf then return end
-    if not uf.ForeverPlatesHooked then
+    if not uf.KuiForeverHooked then
         uf:HookScript("OnShow", uf.Hide)
-        uf.ForeverPlatesHooked = true
+        uf.KuiForeverHooked = true
     end
     uf:Hide()
 end

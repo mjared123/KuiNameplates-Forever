@@ -1,4 +1,4 @@
--- ForeverPlates: slash commands. The settings panel lives in Options.lua.
+-- KuiNameplates: slash commands. The settings panel lives in Options.lua.
 local _, ns = ...
 
 local function OnOff(value)
@@ -33,13 +33,13 @@ end
 
 local function Help()
     ns.Print("commands:")
-    print("  /fp config  - open the settings panel")
-    print("  /fp range [yards]  - show or set max nameplate distance")
-    print("  /fp width|height|font <n>  - bar size and name font size")
-    print("  /fp alpha <0-1>  - transparency of non-target plates")
-    print("  /fp icons <n>  - max debuff icons per plate")
-    print("  /fp class|tank|level|hp|cast|debuffs  - toggle features")
-    print("  /fp reset  - restore defaults")
+    print("  /kui config  - open the settings panel")
+    print("  /kui range [yards]  - show or set max nameplate distance")
+    print("  /kui width|height|font <n>  - bar size and name font size")
+    print("  /kui alpha <0-1>  - transparency of non-target plates")
+    print("  /kui icons <n>  - max debuff icons per plate")
+    print("  /kui class|tank|level|hp|cast|debuffs  - toggle features")
+    print("  /kui reset  - restore defaults")
 end
 
 local function Handle(msg)
@@ -78,12 +78,12 @@ local function Handle(msg)
         ns:RefreshAll()
     elseif cmd == "reset" then
         ns:ResetSettings()
-        ns.Print("settings reset. Max distance is left as it is; use /fp range to change it.")
+        ns.Print("settings reset. Max distance is left as it is; use /kui range to change it.")
     else
         Help()
     end
 end
 
-SLASH_FOREVERPLATES1 = "/fp"
-SLASH_FOREVERPLATES2 = "/foreverplates"
-SlashCmdList.FOREVERPLATES = Handle
+SLASH_KUINAMEPLATESFOREVER1 = "/kui"
+SLASH_KUINAMEPLATESFOREVER2 = "/kuiforever"
+SlashCmdList.KUINAMEPLATESFOREVER = Handle

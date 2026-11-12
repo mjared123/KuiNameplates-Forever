@@ -1,4 +1,4 @@
--- ForeverPlates: settings panel under Interface Options / Settings > AddOns.
+-- KuiNameplates: settings panel under Interface Options / Settings > AddOns.
 -- Built from plain frames (no option templates) so it works across client versions.
 local _, ns = ...
 
@@ -109,16 +109,16 @@ end
 function ns:CreateOptions()
     if self.optionsPanel then return end
     local panel = CreateFrame("Frame")
-    panel.name = "ForeverPlates"
+    panel.name = "KuiNameplates"
     panel:Hide()
 
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText("ForeverPlates")
+    title:SetText("KuiNameplates")
 
     local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
-    sub:SetText("Changes apply instantly. Max distance changes wait until you leave combat. Type /fp for commands.")
+    sub:SetText("Changes apply instantly. Max distance changes wait until you leave combat. Type /kui for commands.")
 
     local widgets = {}
     for i, info in ipairs(CHECKBOXES) do

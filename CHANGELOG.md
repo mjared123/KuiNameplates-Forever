@@ -9,6 +9,6 @@ First release.
 - Cast bars with spell icon and name, an "Interrupted" flash, and grey bars for uninterruptible casts
 - Your debuffs on enemies, with cooldown swipes and stack counts
 - Raid target icons
-- Settings panel (`/fp config`) and slash commands (`/fp`)
+- Settings panel (`/kui config`) and slash commands (`/kui`)
 - Max nameplate distance setting for WoW: Forever's longer ranges
 - Health and debuff updates are batched to once per frame, so lots of plates on screen stay smooth
