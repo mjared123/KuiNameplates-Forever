@@ -1,4 +1,4 @@
-## Interface: 11507
+## Interface: 16001
 ## Title: KuiNameplates |cff9fd5ff(Forever)|r
 ## Notes: Unofficial Kui-style nameplates for WoW: Forever. Not affiliated with Kesava's Kui Nameplates.
 ## Author: mjared123

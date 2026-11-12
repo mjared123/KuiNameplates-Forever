@@ -4,16 +4,16 @@ local ADDON, ns = ...
 ns.plates = {} -- nameplate unit token -> our plate frame
 
 ns.defaults = {
-    width = 130,          -- health bar width
-    height = 10,          -- health bar height
-    nameSize = 10,        -- name font size
-    nonTargetAlpha = 0.6, -- alpha of other plates while you have a target
+    width = 132,          -- health bar width
+    height = 11,          -- health bar height
+    nameSize = 11,        -- name font size
+    nonTargetAlpha = 0.5, -- alpha of other plates while you have a target
     classColors = true,   -- colour enemy players by class
     healthText = true,    -- show health percent when damaged
-    showLevel = true,
+    showLevel = false,
     tankMode = false,     -- colour bars by whether you hold threat
     castBars = true,
-    castHeight = 6,
+    castHeight = 5,
     auras = true,         -- your debuffs on enemies
     maxAuras = 6,
     auraWidth = 22,
@@ -49,8 +49,8 @@ driver:SetScript("OnUpdate", function(self)
         queued[plate] = nil
         local pending = plate.pending
         if plate.unit then
-            if pending.health then plate:UpdateHealth() end
-            if pending.auras then plate:UpdateAuras() end
+            if pending.health then ns.Try(plate.UpdateHealth, plate) end
+            if pending.auras then ns.Try(plate.UpdateAuras, plate) end
         end
         pending.health, pending.auras = nil, nil
     end

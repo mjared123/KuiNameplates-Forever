@@ -26,3 +26,5 @@ Copy the `KuiNameplates` folder into the `Interface/AddOns/` folder of your WoW:
 
 ## License
 MIT. See `LICENSE`.
+
+The Francois One font in `media/` is by Vernon Adams and is used under the SIL Open Font License (`media/FrancoisOne-OFL.txt`). The bar and glow textures are original to this addon.
