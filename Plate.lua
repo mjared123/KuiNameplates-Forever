@@ -219,11 +219,10 @@ function ns:CreatePlate(nameplate)
     plate.health = health
     plate.glow = AddGlow(health)
 
-    -- Cast bar under the health bar, spell icon to the left of both bars.
+    -- Cast bar. Its position, size and icon depend on the chosen style and
+    -- are set in LayoutCast.
     local cast = CreateFrame("StatusBar", nil, plate)
     cast:SetStatusBarTexture(BAR)
-    cast:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -3)
-    cast:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT", 0, -3)
     local castFill = AddBorder(cast, 0.9)
     castFill:SetVertexColor(0.07, 0.07, 0.11, 0.9)
     -- Bright spark riding the leading edge of the bar. It is anchored to the
@@ -239,17 +238,17 @@ function ns:CreatePlate(nameplate)
     cast.spark:SetVertexColor(0.93, 0.93, 1, 0.95)
     cast.spark:SetWidth(2)
     cast.spark:SetPoint("CENTER", edge, "RIGHT", 0, 0)
-    cast.icon = cast:CreateTexture(nil, "ARTWORK")
-    cast.icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
-    cast.icon:SetPoint("TOPRIGHT", health, "TOPLEFT", -3, 0)
-    cast.icon:SetPoint("BOTTOMRIGHT", cast, "BOTTOMLEFT", -3, 0)
+    -- Below the bar's own texture, so the bar can sweep across the icon.
+    cast.icon = cast:CreateTexture(nil, "BORDER")
     local iconBorder = cast:CreateTexture(nil, "BACKGROUND", nil, -7)
     iconBorder:SetTexture(SOLID)
     iconBorder:SetVertexColor(0, 0, 0, 1)
     iconBorder:SetPoint("TOPLEFT", cast.icon, -1, 1)
     iconBorder:SetPoint("BOTTOMRIGHT", cast.icon, 1, -1)
     cast.text = cast:CreateFontString(nil, "OVERLAY")
-    cast.text:SetPoint("TOP", cast, "BOTTOM", 0, -3)
+    cast.text:SetDrawLayer("OVERLAY", 7) -- above the spark
+    cast.text:SetShadowColor(0, 0, 0, 1)
+    cast.text:SetShadowOffset(1, -1)
     cast:SetScript("OnUpdate", CastOnUpdate)
     cast:Hide()
     plate.cast = cast
@@ -319,12 +318,72 @@ function Plate:ApplyLayout()
     local small = math.max(db.nameSize - 2, 7)
     self.level:SetFont(FONT, small, "OUTLINE")
     self.healthText:SetFont(FONT, small, "OUTLINE")
-    self.cast:SetHeight(db.castHeight)
-    self.cast.spark:SetHeight(db.castHeight + 2)
-    self.cast.sparkGlow:SetHeight(db.castHeight + 2)
     self.cast.text:SetFont(FONT, math.max(db.nameSize - 1, 7), "OUTLINE")
-    self.cast.icon:SetWidth(db.height + db.castHeight + 3)
+    self:LayoutCast()
     self:PlaceAuras()
+end
+
+ns.CAST_STYLES = { "thin", "tall", "icon" }
+ns.CAST_STYLE_NAMES = {
+    thin = "Thin bar, icon beside both bars",
+    tall = "Tall bar with the spell name inside",
+    icon = "Icon only",
+}
+
+-- Arrange the cast bar, its icon and the spell name for the chosen style.
+function Plate:LayoutCast()
+    local db, cast, health = ns.db, self.cast, self.health
+    local icon, text = cast.icon, cast.text
+    local style = ns.CAST_STYLE_NAMES[db.castStyle] and db.castStyle or "thin"
+    cast.style = style
+    cast:ClearAllPoints()
+    icon:ClearAllPoints()
+    text:ClearAllPoints()
+    local height
+    if style == "icon" then
+        -- A wide spell icon under the bar; progress sweeps across the icon
+        -- and the spell name sits on its bottom edge.
+        height = db.castHeight + 13
+        cast:SetSize(height * 2, height)
+        cast:SetPoint("TOP", health, "BOTTOM", 0, -6)
+        icon:SetAllPoints(cast)
+        icon:SetTexCoord(0.08, 0.92, 0.29, 0.71)
+        text:SetPoint("CENTER", cast, "BOTTOM", 0, -1)
+    elseif style == "tall" then
+        -- A taller bar under the health bar, the icon at its left end and
+        -- the spell name inside it.
+        height = db.castHeight + 11
+        icon:SetSize(height, height)
+        icon:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -3)
+        icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
+        cast:SetPoint("TOPLEFT", health, "BOTTOMLEFT", height + 3, -3)
+        cast:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT", 0, -3)
+        cast:SetHeight(height)
+        text:SetPoint("CENTER", cast, "CENTER", 0, 0)
+    else
+        -- A thin bar under the health bar, a square icon to the left of
+        -- both bars, and the spell name underneath.
+        height = db.castHeight
+        cast:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -3)
+        cast:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT", 0, -3)
+        cast:SetHeight(height)
+        icon:SetPoint("TOPRIGHT", health, "TOPLEFT", -3, 0)
+        icon:SetPoint("BOTTOMRIGHT", cast, "BOTTOMLEFT", -3, 0)
+        icon:SetWidth(db.height + height + 3)
+        icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
+        text:SetPoint("TOP", cast, "BOTTOM", 0, -3)
+    end
+    cast.spark:SetHeight(height + 2)
+    cast.sparkGlow:SetHeight(height + 2)
+end
+
+-- Colour the cast bar. Over the icon it is a light see-through wash instead.
+local function SetCastColor(cast, color)
+    if cast.style == "icon" then
+        cast:SetStatusBarColor(color[1], color[2], color[3], 0.4)
+    else
+        cast:SetStatusBarColor(color[1], color[2], color[3], 1)
+    end
 end
 
 -- The name overlaps the top edge of the bar. With no bar it takes the bar's place.
@@ -710,7 +769,7 @@ function Plate:UpdateCast()
     end
 
     local c = (Plain(notInt) == true) and COLOR_UNINTERRUPT or (channel and COLOR_CHANNEL or COLOR_CAST)
-    cast:SetStatusBarColor(c[1], c[2], c[3])
+    SetCastColor(cast, c)
     cast.icon:SetTexture(icon)
     cast.text:SetText(name)
     cast.spark:Show()
@@ -728,7 +787,7 @@ function Plate:ShowInterrupted()
     cast.hideAt = GetTime() + 0.6
     cast:SetMinMaxValues(0, 1)
     cast:SetValue(1)
-    cast:SetStatusBarColor(COLOR_INTERRUPTED[1], COLOR_INTERRUPTED[2], COLOR_INTERRUPTED[3])
+    SetCastColor(cast, COLOR_INTERRUPTED)
     cast.text:SetText(INTERRUPTED or "Interrupted")
     cast.spark:Hide()
     cast.sparkGlow:Hide()

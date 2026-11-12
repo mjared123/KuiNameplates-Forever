@@ -34,7 +34,8 @@ local function Layout()
         { -- right column
             { title = "Cast bars",
               { "check", "castBars", "Show cast bars" },
-              { "slider", "castHeight", "Cast bar height", 2, 20, 1 },
+              { "dropdown", "castStyle", "Style", ns.CAST_STYLES, ns.CAST_STYLE_NAMES },
+              { "slider", "castHeight", "Cast bar size", 2, 20, 1 },
             },
             { title = "Debuffs",
               { "check", "auras", "Show your debuffs on enemies" },

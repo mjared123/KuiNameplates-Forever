@@ -18,6 +18,7 @@ ns.defaults = {
     tankMode = false,     -- colour bars by whether you hold threat
     castBars = true,
     castHeight = 4,
+    castStyle = "thin",   -- thin, tall or icon
     thinCast = true,      -- marks saved settings as already moved to the thin cast bar
     auras = true,         -- your debuffs on enemies
     auraWidth = 20,       -- debuff icon size

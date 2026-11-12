@@ -45,6 +45,7 @@ local function Help()
     print("  /kui width|height|font <n>  - bar size and name font size")
     print("  /kui scale <0.5-2>  - overall plate size")
     print("  /kui alpha <0-1>  - transparency of non-target plates")
+    print("  /kui caststyle thin|tall|icon  - cast bar style")
     print("  /kui icons <12-40>  - debuff icon size")
     print("  /kui debuffpos top|topleft|bottom|left|right  - where debuff icons sit")
     print("  /kui debuffoffset <n>  - move debuff icons further from the bar")
@@ -73,6 +74,12 @@ local function Handle(msg)
         else
             ns.Print("max nameplate distance: " .. tostring(GetCVar("nameplateMaxDistance")))
         end
+    elseif cmd == "caststyle" then
+        if arg and ns.CAST_STYLE_NAMES[arg] then
+            db.castStyle = arg
+            ns:RefreshAll()
+        end
+        ns.Print("cast bar style: " .. tostring(db.castStyle) .. " (thin, tall, icon)")
     elseif cmd == "debuffpos" then
         if arg and ns.AURA_SPOT_NAMES[arg] then
             db.auraSpot = arg
