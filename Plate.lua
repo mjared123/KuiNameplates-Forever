@@ -693,12 +693,92 @@ local GAME_ICON_SIZE = 25 -- size the game draws its nameplate aura icons at
 local auraOwners = setmetatable({}, { __mode = "k" }) -- game unit frame -> our plate
 local hookedFrames = setmetatable({}, { __mode = "k" })
 
+local hookedAuras = setmetatable({}, { __mode = "k" })
+local styledIcons = setmetatable({}, { __mode = "k" }) -- game icon frame -> font size styled at
+
+local ICON_HEIGHT = 15 -- of GAME_ICON_SIZE wide: a short, wide icon
+local LIST_KEYS = { "DebuffListFrame", "BuffListFrame", "CrowdControlListFrame" }
+
+-- One-off restyle of a game aura icon: wide crop, thin black border, no
+-- rounded mask or frame art, and the timer as a yellow number on the top-left
+-- corner. Only looks are changed; the game still decides what is shown.
+local function StyleIcon(item, fontSize)
+    if styledIcons[item] == fontSize then return end
+    local first = not styledIcons[item]
+    styledIcons[item] = fontSize
+    local icon, cd = item.Icon, item.Cooldown
+    if first then
+        item:SetHeight(ICON_HEIGHT)
+        if icon then
+            for _, region in ipairs({ item:GetRegions() }) do
+                if region ~= icon then
+                    if region:IsObjectType("MaskTexture") then
+                        icon:RemoveMaskTexture(region)
+                    else
+                        region:Hide() -- the rounded frame art
+                    end
+                end
+            end
+            -- Black backing one pixel larger than the icon, with a pixel of
+            -- space on the right so neighbouring icons don't touch.
+            local back = item:CreateTexture(nil, "BACKGROUND")
+            back:SetTexture(SOLID)
+            back:SetVertexColor(0, 0, 0, 1)
+            back:SetPoint("TOPLEFT", item, "TOPLEFT", 0, 0)
+            back:SetPoint("BOTTOMRIGHT", item, "BOTTOMRIGHT", -1, 0)
+            icon:ClearAllPoints()
+            icon:SetPoint("TOPLEFT", item, "TOPLEFT", 1, -1)
+            icon:SetPoint("BOTTOMRIGHT", item, "BOTTOMRIGHT", -2, 1)
+            icon:SetTexCoord(0.08, 0.92, 0.25, 0.75)
+        end
+    end
+    if cd then
+        for _, region in ipairs({ cd:GetRegions() }) do
+            if region:IsObjectType("FontString") then
+                region:SetFont(FONT, fontSize, "OUTLINE")
+                region:SetTextColor(1, 0.85, 0.25)
+                region:ClearAllPoints()
+                region:SetPoint("TOPLEFT", item, "TOPLEFT", -3, 5)
+            end
+        end
+    end
+    local count = item.CountFrame and item.CountFrame.Count
+    if count then
+        count:SetFont(FONT, fontSize, "OUTLINE")
+        count:SetTextColor(1, 1, 1)
+        count:ClearAllPoints()
+        count:SetPoint("BOTTOMRIGHT", item, "BOTTOMRIGHT", 2, -4)
+    end
+end
+
+-- Style every icon the game is currently showing in a borrowed row.
+local function StyleAuras(auras)
+    local db = ns.db
+    local fontSize = math.floor(db.nameSize * GAME_ICON_SIZE / db.auraWidth + 0.5)
+    for _, key in ipairs(LIST_KEYS) do
+        local list = auras[key]
+        if list then
+            for _, item in ipairs({ list:GetChildren() }) do
+                StyleIcon(item, fontSize)
+                local cd = item.Cooldown
+                if cd then
+                    -- The game sets these again each time it fills an icon.
+                    cd:SetDrawSwipe(false)
+                    cd:SetDrawEdge(false)
+                    cd:SetHideCountdownNumbers(false)
+                end
+            end
+        end
+    end
+end
+
 function Plate:PlaceAuras()
     local auras = self.gameAuras
     if not auras then return end
     local db = ns.db
     local scale = db.auraWidth / GAME_ICON_SIZE
     auras:SetScale(scale)
+    Try(StyleAuras, auras)
     local list = auras.DebuffListFrame
     if list then
         list:ClearAllPoints()
@@ -719,6 +799,13 @@ function Plate:AttachAuras()
         hooksecurefunc(frame, "UpdateAnchors", function(f)
             local owner = auraOwners[f]
             if owner then Try(owner.PlaceAuras, owner) end
+        end)
+    end
+    -- Restyle icons each time the game refills the row.
+    if not hookedAuras[auras] and auras.RefreshAuras then
+        hookedAuras[auras] = true
+        hooksecurefunc(auras, "RefreshAuras", function(a)
+            if a:GetParent() ~= frame then Try(StyleAuras, a) end
         end)
     end
     auraOwners[frame] = self
