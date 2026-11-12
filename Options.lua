@@ -10,6 +10,7 @@ local CHECKBOXES = {
     { key = "auras",       label = "Show your debuffs on enemies" },
     { key = "tankMode",    label = "Tank mode (colour bars by threat)" },
     { key = "nameOnly",    label = "Friendly units: name only, no bar" },
+    { key = "auraColors",  label = "Debuff borders coloured by type (poison, curse...)" },
 }
 
 local SLIDERS = {
@@ -21,6 +22,7 @@ local SLIDERS = {
     { key = "nameSize",       label = "Name font size",       min = 6,  max = 24,  step = 1 },
     { key = "nonTargetAlpha", label = "Non-target opacity",   min = 0,  max = 1,   step = 0.05 },
     { key = "auraWidth",      label = "Debuff icon size",     min = 12, max = 40,  step = 1 },
+    { key = "auraOffset",     label = "Debuff distance from bar", min = -20, max = 40, step = 1 },
 }
 
 local function Round(value, step)
@@ -129,9 +131,28 @@ function ns:CreateOptions()
         widgets[#widgets + 1] = CreateSlider(panel, info, 330, -80 - (i - 1) * 46)
     end
 
+    -- Button that steps through the places the debuff icons can sit.
+    local spot = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    spot:SetSize(260, 24)
+    spot:SetPoint("TOPLEFT", 16, -60 - #CHECKBOXES * 30 - 10)
+    spot.Refresh = function(self)
+        self:SetText("Debuff position: " .. (ns.AURA_SPOT_NAMES[ns.db.auraSpot] or ns.AURA_SPOT_NAMES.top))
+    end
+    spot:SetScript("OnClick", function(self)
+        local spots = ns.AURA_SPOTS
+        local nextIndex = 1
+        for i, name in ipairs(spots) do
+            if name == ns.db.auraSpot then nextIndex = i % #spots + 1 end
+        end
+        ns.db.auraSpot = spots[nextIndex]
+        self:Refresh()
+        ns:RefreshAll()
+    end)
+    widgets[#widgets + 1] = spot
+
     local reset = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     reset:SetSize(140, 24)
-    reset:SetPoint("TOPLEFT", 16, -60 - #CHECKBOXES * 30 - 16)
+    reset:SetPoint("TOPLEFT", 16, -60 - #CHECKBOXES * 30 - 50)
     reset:SetText("Reset to defaults")
     reset:SetScript("OnClick", function()
         ns:ResetSettings()

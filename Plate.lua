@@ -683,25 +683,104 @@ end
 --
 -- While combat restrictions are active, WoW: Forever refuses addons any aura
 -- data at all (C_UnitAuras calls raise an error), so this addon cannot draw
--- debuff icons itself. The game's own nameplate keeps a debuff row up to date
--- for every unit, and its code is allowed to read auras. That row is borrowed:
--- it is re-parented onto our plate and placed above the name. Only engine
--- properties (parent, scale, anchors) are touched, never the game's own Lua
--- data, so its code keeps running untainted.
+-- debuff icons itself. The game's own nameplate keeps aura rows up to date
+-- for every unit, and its code is allowed to read auras. Those rows are
+-- borrowed: they are re-parented onto our plate, and each icon is restyled
+-- and positioned here. Only engine properties (parent, scale, anchors, looks)
+-- are touched, never the game's own Lua data, so its code keeps running
+-- untainted.
 
-local GAME_ICON_SIZE = 25 -- size the game draws its nameplate aura icons at
-local auraOwners = setmetatable({}, { __mode = "k" }) -- game unit frame -> our plate
-local hookedFrames = setmetatable({}, { __mode = "k" })
+local GAME_ICON_SIZE = 25 -- width the game draws its nameplate aura icons at
+local ICON_HEIGHT = 15    -- our icons are short and wide
+local ICON_GAP = 2
+local ROW_STEP = ICON_HEIGHT + 8 -- row spacing, with room for the timer text
 
-local hookedAuras = setmetatable({}, { __mode = "k" })
-local styledIcons = setmetatable({}, { __mode = "k" }) -- game icon frame -> font size styled at
+local weak = { __mode = "k" }
+local auraOwners = setmetatable({}, weak)   -- game unit frame -> our plate
+local auraPlates = setmetatable({}, weak)   -- game auras frame -> our plate
+local hookedFrames = setmetatable({}, weak)
+local hookedAuras = setmetatable({}, weak)
+local styledIcons = setmetatable({}, weak)  -- game icon frame -> font size styled at
+local iconBorders = setmetatable({}, weak)  -- game icon frame -> our border texture
+local lastAura = setmetatable({}, weak)     -- game icon frame -> aura it last showed
 
-local ICON_HEIGHT = 15 -- of GAME_ICON_SIZE wide: a short, wide icon
-local LIST_KEYS = { "DebuffListFrame", "BuffListFrame", "CrowdControlListFrame" }
+-- Border colours by debuff type.
+local DISPEL_COLORS = {
+    Magic   = { 0.20, 0.60, 1.00 },
+    Curse   = { 0.64, 0.19, 0.94 },
+    Disease = { 0.70, 0.48, 0.10 },
+    Poison  = { 0.10, 0.75, 0.15 },
+    Bleed   = { 0.85, 0.12, 0.12 },
+    Enrage  = { 0.95, 0.45, 0.10 },
+}
+-- The game's numeric ids for the same types, used when the type is hidden.
+local DISPEL_IDS = { Magic = 1, Curse = 2, Disease = 3, Poison = 4, Enrage = 9, Bleed = 11 }
 
--- One-off restyle of a game aura icon: wide crop, thin black border, no
--- rounded mask or frame art, and the timer as a yellow number on the top-left
--- corner. Only looks are changed; the game still decides what is shown.
+ns.AURA_SPOTS = { "top", "topleft", "bottom", "left", "right" }
+ns.AURA_SPOT_NAMES = {
+    top = "Above, centred", topleft = "Above, from the left",
+    bottom = "Below", left = "Left of the bar", right = "Right of the bar",
+}
+
+-- Remember which aura each icon shows, so its border can be coloured. The
+-- hook runs after the game's own code and does not interfere with it.
+local itemsHooked = false
+local function HookAuraItems()
+    if itemsHooked or type(NamePlateAuraItemMixin) ~= "table" then return end
+    itemsHooked = true
+    hooksecurefunc(NamePlateAuraItemMixin, "SetAura", function(item, aura)
+        lastAura[item] = aura
+    end)
+end
+pcall(HookAuraItems)
+
+-- A colour curve mapping the game's debuff type ids to our border colours.
+-- With it the game can colour a border for us when the type itself is hidden.
+local dispelCurve
+local function DispelCurve()
+    if dispelCurve ~= nil then return dispelCurve or nil end
+    dispelCurve = false
+    pcall(function()
+        local curve = C_CurveUtil.CreateColorCurve()
+        if Enum and Enum.LuaCurveType then curve:SetType(Enum.LuaCurveType.Step) end
+        curve:AddPoint(0, CreateColor(0, 0, 0, 1))
+        for name, id in pairs(DISPEL_IDS) do
+            local c = DISPEL_COLORS[name]
+            curve:AddPoint(id, CreateColor(c[1], c[2], c[3], 1))
+        end
+        dispelCurve = curve
+    end)
+    return dispelCurve or nil
+end
+
+local function SetHiddenTypeColor(border, unit, auraInstanceID)
+    local curve = DispelCurve()
+    if not curve then error("no colour curve") end
+    local color = C_UnitAuras.GetAuraDispelTypeColor(unit, auraInstanceID, curve)
+    border:SetVertexColor(color:GetRGBA())
+end
+
+local function ColorBorder(item, unit)
+    local border = iconBorders[item]
+    if not border then return end
+    local aura = lastAura[item]
+    if ns.db.auraColors and aura then
+        local dispel = aura.dispelName
+        if IsSecret(dispel) then
+            if unit and pcall(SetHiddenTypeColor, border, unit, aura.auraInstanceID) then return end
+        elseif dispel ~= nil then
+            local c = DISPEL_COLORS[dispel]
+            if c then
+                border:SetVertexColor(c[1], c[2], c[3], 1)
+                return
+            end
+        end
+    end
+    border:SetVertexColor(0, 0, 0, 1)
+end
+
+-- One-off restyle of a game aura icon: wide crop, thin border, no rounded
+-- mask or frame art, and the timer as a yellow number on the top-left corner.
 local function StyleIcon(item, fontSize)
     if styledIcons[item] == fontSize then return end
     local first = not styledIcons[item]
@@ -719,16 +798,14 @@ local function StyleIcon(item, fontSize)
                     end
                 end
             end
-            -- Black backing one pixel larger than the icon, with a pixel of
-            -- space on the right so neighbouring icons don't touch.
-            local back = item:CreateTexture(nil, "BACKGROUND")
-            back:SetTexture(SOLID)
-            back:SetVertexColor(0, 0, 0, 1)
-            back:SetPoint("TOPLEFT", item, "TOPLEFT", 0, 0)
-            back:SetPoint("BOTTOMRIGHT", item, "BOTTOMRIGHT", -1, 0)
+            local border = item:CreateTexture(nil, "BACKGROUND")
+            border:SetTexture(SOLID)
+            border:SetVertexColor(0, 0, 0, 1)
+            border:SetAllPoints(item)
+            iconBorders[item] = border
             icon:ClearAllPoints()
             icon:SetPoint("TOPLEFT", item, "TOPLEFT", 1, -1)
-            icon:SetPoint("BOTTOMRIGHT", item, "BOTTOMRIGHT", -2, 1)
+            icon:SetPoint("BOTTOMRIGHT", item, "BOTTOMRIGHT", -1, 1)
             icon:SetTexCoord(0.08, 0.92, 0.25, 0.75)
         end
     end
@@ -751,40 +828,93 @@ local function StyleIcon(item, fontSize)
     end
 end
 
--- Style every icon the game is currently showing in a borrowed row.
-local function StyleAuras(auras)
+local function ByLayoutIndex(a, b)
+    return (Plain(a.layoutIndex) or 0) < (Plain(b.layoutIndex) or 0)
+end
+
+-- Position a set of icons around the health bar. Every icon is anchored
+-- straight to the bar, so they always line up whatever the game's own row
+-- layout did. Distances are converted from plate units to the icon's scale.
+local function LayoutIcons(plate, items, spot, auraScale)
+    local n = #items
+    if n == 0 then return end
     local db = ns.db
-    local fontSize = math.floor(db.nameSize * GAME_ICON_SIZE / db.auraWidth + 0.5)
-    for _, key in ipairs(LIST_KEYS) do
-        local list = auras[key]
-        if list then
-            for _, item in ipairs({ list:GetChildren() }) do
-                StyleIcon(item, fontSize)
-                local cd = item.Cooldown
-                if cd then
-                    -- The game sets these again each time it fills an icon.
-                    cd:SetDrawSwipe(false)
-                    cd:SetDrawEdge(false)
-                    cd:SetHideCountdownNumbers(false)
-                end
+    local health = plate.health
+    local k = auraScale * (Plain(items[1]:GetScale()) or 1)
+    if k <= 0 then k = auraScale end
+    local w, step = GAME_ICON_SIZE, GAME_ICON_SIZE + ICON_GAP
+    local offset = (db.auraOffset or 0) / k
+    local across = (spot == "left" or spot == "right") and 3
+        or math.max(1, math.floor((db.width / k + ICON_GAP) / step))
+
+    for i, item in ipairs(items) do
+        local row = math.floor((i - 1) / across)
+        local col = (i - 1) % across
+        local inRow = math.min(across, n - row * across)
+        local rowWidth = inRow * w + (inRow - 1) * ICON_GAP
+        item:ClearAllPoints()
+        if spot == "bottom" then
+            local y = (db.castHeight + db.nameSize + 9) / k + offset
+            item:SetPoint("TOPLEFT", health, "BOTTOM", -rowWidth / 2 + col * step, -y - row * ROW_STEP)
+        elseif spot == "left" then
+            -- Clear of the cast icon, which sits directly left of the bar.
+            local x = (db.height + db.castHeight + 9) / k + offset
+            item:SetPoint("RIGHT", health, "LEFT", -x - col * step, -row * ROW_STEP)
+        elseif spot == "right" then
+            local x = 5 / k + offset
+            item:SetPoint("LEFT", health, "RIGHT", x + col * step, -row * ROW_STEP)
+        elseif spot == "topleft" then
+            local y = (db.nameSize + 3) / k + offset
+            item:SetPoint("BOTTOMLEFT", health, "TOPLEFT", col * step, y + row * ROW_STEP)
+        else -- top, centred
+            local y = (db.nameSize + 3) / k + offset
+            item:SetPoint("BOTTOMLEFT", health, "TOP", -rowWidth / 2 + col * step, y + row * ROW_STEP)
+        end
+    end
+end
+
+local function ShownChildren(list, into)
+    if not list then return into end
+    for _, item in ipairs({ list:GetChildren() }) do
+        if item:IsShown() then into[#into + 1] = item end
+    end
+    return into
+end
+
+-- Restyle, colour and position every icon the game is showing in borrowed rows.
+local function ArrangeAuras(auras)
+    local plate = auraPlates[auras]
+    if not plate then return end
+    local db = ns.db
+    local auraScale = db.auraWidth / GAME_ICON_SIZE
+    local fontSize = math.floor(db.nameSize / auraScale + 0.5)
+    local debuffs = ShownChildren(auras.DebuffListFrame, {})
+    local others = ShownChildren(auras.CrowdControlListFrame, ShownChildren(auras.BuffListFrame, {}))
+    for _, items in ipairs({ debuffs, others }) do
+        for _, item in ipairs(items) do
+            StyleIcon(item, fontSize)
+            ColorBorder(item, plate.unit)
+            local cd = item.Cooldown
+            if cd then
+                -- The game sets these again each time it fills an icon.
+                cd:SetDrawSwipe(false)
+                cd:SetDrawEdge(false)
+                cd:SetHideCountdownNumbers(false)
             end
         end
     end
+    table.sort(debuffs, ByLayoutIndex)
+    local spot = db.auraSpot or "top"
+    LayoutIcons(plate, debuffs, spot, auraScale)
+    -- Enemy buffs and crowd control go beside the bar, away from the debuffs.
+    LayoutIcons(plate, others, spot == "right" and "left" or "right", auraScale)
 end
 
 function Plate:PlaceAuras()
     local auras = self.gameAuras
     if not auras then return end
-    local db = ns.db
-    local scale = db.auraWidth / GAME_ICON_SIZE
-    auras:SetScale(scale)
-    Try(StyleAuras, auras)
-    local list = auras.DebuffListFrame
-    if list then
-        list:ClearAllPoints()
-        -- Offsets are in the row's own scale, so convert from plate units.
-        list:SetPoint("BOTTOM", self.health, "TOP", 0, (db.nameSize + 3) / scale)
-    end
+    auras:SetScale(ns.db.auraWidth / GAME_ICON_SIZE)
+    Try(ArrangeAuras, auras)
 end
 
 function Plate:AttachAuras()
@@ -793,34 +923,37 @@ function Plate:AttachAuras()
     local frame = self.nameplate.UnitFrame
     local auras = frame and frame.AurasFrame
     if not auras or (auras.IsForbidden and auras:IsForbidden()) then return end
-    -- The game re-anchors the row whenever it lays its plate out again.
+    pcall(HookAuraItems)
+    -- The game re-anchors its rows whenever it lays its plate out again.
     if not hookedFrames[frame] and frame.UpdateAnchors then
         hookedFrames[frame] = true
         hooksecurefunc(frame, "UpdateAnchors", function(f)
             local owner = auraOwners[f]
-            if owner then Try(owner.PlaceAuras, owner) end
+            if owner then owner:PlaceAuras() end
         end)
     end
-    -- Restyle icons each time the game refills the row.
+    -- Arrange the icons each time the game refills its rows.
     if not hookedAuras[auras] and auras.RefreshAuras then
         hookedAuras[auras] = true
         hooksecurefunc(auras, "RefreshAuras", function(a)
-            if a:GetParent() ~= frame then Try(StyleAuras, a) end
+            Try(ArrangeAuras, a)
         end)
     end
     auraOwners[frame] = self
+    auraPlates[auras] = self
     self.gameFrame, self.gameAuras = frame, auras
     auras:SetParent(self)
     auras:SetFrameLevel(self.text:GetFrameLevel() + 1)
     self:PlaceAuras()
 end
 
--- Hand the row back to the game's frame, which is reused for other units.
+-- Hand the rows back to the game's frame, which is reused for other units.
 function Plate:DetachAuras()
     local frame, auras = self.gameFrame, self.gameAuras
     if not auras then return end
     self.gameFrame, self.gameAuras = nil, nil
     if auraOwners[frame] == self then auraOwners[frame] = nil end
+    if auraPlates[auras] == self then auraPlates[auras] = nil end
     auras:SetParent(frame)
     auras:SetScale(1)
 end

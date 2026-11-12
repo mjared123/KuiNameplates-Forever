@@ -13,6 +13,7 @@ local toggles = {
     cast = { key = "castBars", label = "Cast bars" },
     debuffs = { key = "auras", label = "Debuff icons" },
     friendly = { key = "nameOnly", label = "Name only on friendly units" },
+    colors = { key = "auraColors", label = "Debuff borders coloured by type" },
 }
 
 local numbers = {
@@ -22,6 +23,7 @@ local numbers = {
     scale = { key = "scale", min = 0.5, max = 2 },
     alpha = { key = "nonTargetAlpha", min = 0, max = 1 },
     icons = { key = "auraWidth", min = 12, max = 40 },
+    debuffoffset = { key = "auraOffset", min = -20, max = 40 },
 }
 
 function ns:ResetSettings()
@@ -41,7 +43,9 @@ local function Help()
     print("  /kui scale <0.5-2>  - overall plate size")
     print("  /kui alpha <0-1>  - transparency of non-target plates")
     print("  /kui icons <12-40>  - debuff icon size")
-    print("  /kui class|tank|level|hp|cast|debuffs|friendly  - toggle features")
+    print("  /kui debuffpos top|topleft|bottom|left|right  - where debuff icons sit")
+    print("  /kui debuffoffset <n>  - move debuff icons further from the bar")
+    print("  /kui class|tank|level|hp|cast|debuffs|friendly|colors  - toggle features")
     print("  /kui reset  - restore defaults")
 end
 
@@ -65,6 +69,12 @@ local function Handle(msg)
         else
             ns.Print("max nameplate distance: " .. tostring(GetCVar("nameplateMaxDistance")))
         end
+    elseif cmd == "debuffpos" then
+        if arg and ns.AURA_SPOT_NAMES[arg] then
+            db.auraSpot = arg
+            ns:RefreshAll()
+        end
+        ns.Print("debuff position: " .. tostring(db.auraSpot) .. " (top, topleft, bottom, left, right)")
     elseif toggles[cmd] then
         local t = toggles[cmd]
         db[t.key] = not db[t.key]

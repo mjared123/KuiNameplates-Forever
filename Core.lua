@@ -19,6 +19,9 @@ ns.defaults = {
     thinCast = true,      -- marks saved settings as already moved to the thin cast bar
     auras = true,         -- your debuffs on enemies
     auraWidth = 20,       -- debuff icon size
+    auraSpot = "top",     -- where debuff icons sit: top, topleft, bottom, left, right
+    auraOffset = 0,       -- extra distance of the debuff icons from the bar
+    auraColors = true,    -- colour debuff borders by type (poison, curse, ...)
     maxDistance = nil,    -- nameplateMaxDistance CVar; nil leaves the game's value
 }
 
