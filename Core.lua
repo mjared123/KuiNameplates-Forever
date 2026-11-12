@@ -7,6 +7,8 @@ ns.defaults = {
     width = 132,          -- health bar width
     height = 11,          -- health bar height
     nameSize = 11,        -- name font size
+    scale = 1,            -- overall plate size multiplier
+    nameOnly = true,      -- friendly units show a coloured name and no bar
     nonTargetAlpha = 0.5, -- alpha of other plates while you have a target
     classColors = true,   -- colour enemy players by class
     healthText = true,    -- show health percent when damaged
@@ -89,7 +91,15 @@ function ns:ADDON_LOADED(name)
     events:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
     events:RegisterEvent("PLAYER_TARGET_CHANGED")
     events:RegisterEvent("RAID_TARGET_UPDATE")
+    -- Plates are sized in screen pixels, so re-fit them when the display changes.
+    pcall(events.RegisterEvent, events, "DISPLAY_SIZE_CHANGED")
+    pcall(events.RegisterEvent, events, "UI_SCALE_CHANGED")
 end
+
+function ns:DISPLAY_SIZE_CHANGED()
+    self:RefreshAll()
+end
+ns.UI_SCALE_CHANGED = ns.DISPLAY_SIZE_CHANGED
 
 function ns:PLAYER_LOGIN()
     self:ApplyCVars()

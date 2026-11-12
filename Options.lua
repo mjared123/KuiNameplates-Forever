@@ -9,11 +9,13 @@ local CHECKBOXES = {
     { key = "castBars",    label = "Show cast bars" },
     { key = "auras",       label = "Show your debuffs on enemies" },
     { key = "tankMode",    label = "Tank mode (colour bars by threat)" },
+    { key = "nameOnly",    label = "Friendly units: name only, no bar" },
 }
 
 local SLIDERS = {
     { key = "maxDistance",    label = "Max nameplate distance (yards)", min = 10, max = 100, step = 1 },
-    { key = "width",          label = "Bar width",            min = 40, max = 300, step = 5 },
+    { key = "scale",          label = "Overall size",         min = 0.5, max = 2,  step = 0.05 },
+    { key = "width",          label = "Bar width",           min = 40, max = 300, step = 5 },
     { key = "height",         label = "Bar height",           min = 4,  max = 40,  step = 1 },
     { key = "castHeight",     label = "Cast bar height",      min = 2,  max = 20,  step = 1 },
     { key = "nameSize",       label = "Name font size",       min = 6,  max = 24,  step = 1 },

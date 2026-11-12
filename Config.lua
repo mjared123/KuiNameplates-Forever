@@ -12,12 +12,14 @@ local toggles = {
     hp = { key = "healthText", label = "Health percent" },
     cast = { key = "castBars", label = "Cast bars" },
     debuffs = { key = "auras", label = "Debuff icons" },
+    friendly = { key = "nameOnly", label = "Name only on friendly units" },
 }
 
 local numbers = {
     width = { key = "width", min = 40, max = 300 },
     height = { key = "height", min = 4, max = 40 },
     font = { key = "nameSize", min = 6, max = 24 },
+    scale = { key = "scale", min = 0.5, max = 2 },
     alpha = { key = "nonTargetAlpha", min = 0, max = 1 },
     icons = { key = "maxAuras", min = 0, max = 10 },
 }
@@ -36,9 +38,10 @@ local function Help()
     print("  /kui config  - open the settings panel")
     print("  /kui range [yards]  - show or set max nameplate distance")
     print("  /kui width|height|font <n>  - bar size and name font size")
+    print("  /kui scale <0.5-2>  - overall plate size")
     print("  /kui alpha <0-1>  - transparency of non-target plates")
     print("  /kui icons <n>  - max debuff icons per plate")
-    print("  /kui class|tank|level|hp|cast|debuffs  - toggle features")
+    print("  /kui class|tank|level|hp|cast|debuffs|friendly  - toggle features")
     print("  /kui reset  - restore defaults")
 end
 

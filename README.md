@@ -8,7 +8,8 @@ Copy the `KuiNameplates` folder into the `Interface/AddOns/` folder of your WoW:
 ## Features
 - Reaction-coloured health bars, class colours for enemy players
 - Level with elite/rare markers, health percent when damaged
-- White outline on your target, faded non-target plates
+- Soft blue glow on your target, faded non-target plates
+- Friendly units shown as a coloured name with no bar (optional)
 - Threat glow (orange: close to pulling aggro, red: you have aggro), optional tank mode colouring
 - Cast bars with spell icon, interrupted flash and uninterruptible colouring
 - Your debuffs on enemies with timers and stacks

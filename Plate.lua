@@ -14,15 +14,28 @@ local GLOW = MEDIA .. "glow.tga"
 local FONT = MEDIA .. "FrancoisOne.ttf"
 local SOLID = "Interface\\Buttons\\WHITE8X8"
 local RAID_ICONS = "Interface\\TargetingFrame\\UI-RaidTargetingIcons"
-local GLOW_SIZE = 6
+local GLOW_SIZE = 7      -- how far the glow reaches past the bar
+local GLOW_EDGE = 12 / 32 -- part of the glow texture used by each edge slice
 
-local COLOR_HOSTILE  = { 0.78, 0.22, 0.22 }
-local COLOR_NEUTRAL  = { 0.92, 0.78, 0.28 }
-local COLOR_FRIENDLY = { 0.30, 0.68, 0.30 }
-local COLOR_PLAYER   = { 0.30, 0.50, 0.90 } -- friendly players without class colours
-local COLOR_TAPPED   = { 0.55, 0.55, 0.55 }
-local COLOR_TANK_OK  = { 0.30, 0.55, 0.95 } -- tank mode: you hold threat
-local COLOR_TANK_BAD = { 1.00, 0.45, 0.10 } -- tank mode: threat slipping
+-- Bar colours are deliberately dark and muted.
+local COLOR_HOSTILE  = { 0.56, 0.16, 0.08 }
+local COLOR_NEUTRAL  = { 0.66, 0.54, 0.08 }
+local COLOR_FRIENDLY = { 0.16, 0.46, 0.10 }
+local COLOR_PLAYER   = { 0.14, 0.34, 0.62 } -- friendly players without class colours
+local COLOR_TAPPED   = { 0.40, 0.40, 0.40 }
+local COLOR_TANK_OK  = { 0.16, 0.36, 0.66 } -- tank mode: you hold threat
+local COLOR_TANK_BAD = { 0.72, 0.32, 0.06 } -- tank mode: threat slipping
+local CLASS_DIM = 0.72 -- class colours are toned down to sit with the rest
+
+local GLOW_TARGET = { 0.30, 0.70, 1.00, 1 }
+local GLOW_THREAT = { 1.00, 0.10, 0.10, 1 }
+local GLOW_THREAT_LOW = { 1.00, 0.55, 0.10, 1 }
+local GLOW_SHADOW = { 0, 0, 0, 0.55 }
+
+-- Name colours for friendly units shown as a name with no bar.
+local NAME_FRIENDLY = { 0.55, 0.95, 0.55 }
+local NAME_NEUTRAL  = { 1.00, 0.90, 0.45 }
+local NAME_PLAYER   = { 0.62, 0.72, 1.00 }
 
 local COLOR_CAST        = { 0.95, 0.75, 0.20 }
 local COLOR_CHANNEL     = { 0.40, 0.80, 0.40 }
@@ -95,55 +108,80 @@ local function AddBorder(frame, fillAlpha)
     if fillAlpha then
         local fill = frame:CreateTexture(nil, "BACKGROUND", nil, -6)
         fill:SetTexture(SOLID)
-        fill:SetVertexColor(0.06, 0.06, 0.06, fillAlpha)
+        fill:SetVertexColor(0.05, 0.03, 0.03, fillAlpha)
         fill:SetAllPoints(frame)
+        return fill
     end
 end
 
--- Soft glow around a frame, from four fading strips (opaque edge against the frame).
+-- Soft glow around a frame. The glow texture is a blurred box; it is drawn as
+-- four corners and four edges so it keeps its shape at any bar size.
 local function AddGlow(frame)
-    local strips = {}
-    local function Strip()
+    local pieces = {}
+    local e, s = GLOW_EDGE, GLOW_SIZE
+    local function Piece(left, right, top, bottom)
         local tex = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
         tex:SetTexture(GLOW)
-        tex:SetBlendMode("ADD")
-        strips[#strips + 1] = tex
+        tex:SetTexCoord(left, right, top, bottom)
+        pieces[#pieces + 1] = tex
         return tex
     end
-    local top = Strip()
-    top:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", -GLOW_SIZE - 1, 1)
-    top:SetPoint("BOTTOMRIGHT", frame, "TOPRIGHT", GLOW_SIZE + 1, 1)
-    top:SetHeight(GLOW_SIZE)
-    top:SetTexCoord(0, 1, 1, 0)
-    local bottom = Strip()
-    bottom:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", -GLOW_SIZE - 1, -1)
-    bottom:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", GLOW_SIZE + 1, -1)
-    bottom:SetHeight(GLOW_SIZE)
-    local left = Strip()
-    left:SetPoint("TOPRIGHT", frame, "TOPLEFT", -1, 1)
-    left:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -1, -1)
-    left:SetWidth(GLOW_SIZE)
-    left:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0)
-    local right = Strip()
-    right:SetPoint("TOPLEFT", frame, "TOPRIGHT", 1, 1)
-    right:SetPoint("BOTTOMLEFT", frame, "BOTTOMRIGHT", 1, -1)
-    right:SetWidth(GLOW_SIZE)
-    right:SetTexCoord(0, 0, 1, 0, 0, 1, 1, 1)
+    -- The glow starts at the outside of the 1px border.
+    local tl = Piece(0, e, 0, e)
+    tl:SetSize(s, s)
+    tl:SetPoint("BOTTOMRIGHT", frame, "TOPLEFT", -1, 1)
+    local tr = Piece(1 - e, 1, 0, e)
+    tr:SetSize(s, s)
+    tr:SetPoint("BOTTOMLEFT", frame, "TOPRIGHT", 1, 1)
+    local bl = Piece(0, e, 1 - e, 1)
+    bl:SetSize(s, s)
+    bl:SetPoint("TOPRIGHT", frame, "BOTTOMLEFT", -1, -1)
+    local br = Piece(1 - e, 1, 1 - e, 1)
+    br:SetSize(s, s)
+    br:SetPoint("TOPLEFT", frame, "BOTTOMRIGHT", 1, -1)
+    local top = Piece(e, 1 - e, 0, e)
+    top:SetPoint("BOTTOMLEFT", tl, "BOTTOMRIGHT")
+    top:SetPoint("TOPRIGHT", tr, "TOPLEFT")
+    local bottom = Piece(e, 1 - e, 1 - e, 1)
+    bottom:SetPoint("TOPLEFT", bl, "TOPRIGHT")
+    bottom:SetPoint("BOTTOMRIGHT", br, "BOTTOMLEFT")
+    local left = Piece(0, e, e, 1 - e)
+    left:SetPoint("TOPRIGHT", tl, "BOTTOMRIGHT")
+    left:SetPoint("BOTTOMLEFT", bl, "TOPLEFT")
+    local right = Piece(1 - e, 1, e, 1 - e)
+    right:SetPoint("TOPLEFT", tr, "BOTTOMLEFT")
+    right:SetPoint("BOTTOMRIGHT", br, "TOPRIGHT")
 
-    local glow = { shown = false }
-    function glow:Set(r, g, b, a)
-        for _, tex in ipairs(strips) do
-            tex:SetVertexColor(r, g, b, a)
+    local glow = {}
+    function glow:Set(color)
+        if self.color == color then return end
+        self.color = color
+        for _, tex in ipairs(pieces) do
+            tex:SetVertexColor(color[1], color[2], color[3], color[4])
             tex:Show()
         end
-        self.shown = true
     end
     function glow:Hide()
-        for _, tex in ipairs(strips) do tex:Hide() end
-        self.shown = false
+        if self.color == false then return end
+        self.color = false
+        for _, tex in ipairs(pieces) do tex:Hide() end
     end
     glow:Hide()
     return glow
+end
+
+-- Scale that makes one layout unit one screen pixel on a 1080p display, and
+-- the same apparent size on larger ones, whatever the UI scale is set to.
+local function PixelScale()
+    local height
+    if GetPhysicalScreenSize then
+        local _, h = GetPhysicalScreenSize()
+        height = h
+    end
+    if not height or height <= 0 then
+        return UIParent:GetEffectiveScale()
+    end
+    return 768 / height * math.max(1, height / 1080)
 end
 
 local function CastOnUpdate(cast)
@@ -171,7 +209,13 @@ function ns:CreatePlate(nameplate)
     local health = CreateFrame("StatusBar", nil, plate)
     health:SetStatusBarTexture(BAR)
     health:SetPoint("CENTER", plate, "CENTER", 0, 0)
-    AddBorder(health, 0.85)
+    health.fill = AddBorder(health, 0.9)
+    -- Darkens the bar when the game picks the colour for us (see UpdateColor).
+    health.dim = health:CreateTexture(nil, "ARTWORK", nil, 1)
+    health.dim:SetTexture(SOLID)
+    health.dim:SetVertexColor(0, 0, 0, 0.4)
+    health.dim:SetAllPoints(health)
+    health.dim:Hide()
     plate.health = health
     plate.glow = AddGlow(health)
 
@@ -200,21 +244,26 @@ function ns:CreatePlate(nameplate)
     plate.auraButtons = {}
     plate.pending = {}
 
-    plate.name = plate:CreateFontString(nil, "OVERLAY")
-    plate.name:SetPoint("BOTTOM", health, "TOP", 0, 3)
-    plate.name:SetWordWrap(false)
-    plate.name:SetShadowOffset(1, -1)
+    -- Text sits on its own frame above the bars so nothing draws over it.
+    local text = CreateFrame("Frame", nil, plate)
+    text:SetAllPoints(health)
+    text:SetFrameLevel(health:GetFrameLevel() + 3)
+    plate.text = text
 
+    plate.name = text:CreateFontString(nil, "OVERLAY")
+    plate.name:SetWordWrap(false)
+
+    -- Level and health percent straddle the bottom edge of the bar.
     plate.level = health:CreateFontString(nil, "OVERLAY")
-    plate.level:SetPoint("LEFT", health, "LEFT", 2, 0)
+    plate.level:SetPoint("LEFT", health, "BOTTOMLEFT", 2, 1)
 
     plate.healthText = health:CreateFontString(nil, "OVERLAY")
-    plate.healthText:SetPoint("RIGHT", health, "RIGHT", -2, 0)
+    plate.healthText:SetPoint("RIGHT", health, "BOTTOMRIGHT", -2, 1)
 
-    plate.raidIcon = health:CreateTexture(nil, "OVERLAY")
+    plate.raidIcon = text:CreateTexture(nil, "OVERLAY")
     plate.raidIcon:SetTexture(RAID_ICONS)
-    plate.raidIcon:SetSize(20, 20)
-    plate.raidIcon:SetPoint("RIGHT", plate.name, "LEFT", -2, 0)
+    plate.raidIcon:SetSize(16, 16)
+    plate.raidIcon:SetPoint("RIGHT", health, "LEFT", -5, 0)
     plate.raidIcon:Hide()
 
     plate:SetScript("OnEvent", plate.OnEvent)
@@ -228,9 +277,21 @@ end
 
 function Plate:ApplyLayout()
     local db = ns.db
+    -- Size plates in screen pixels rather than following the nameplate's own
+    -- scale, which makes them far larger than intended.
+    local scale = PixelScale() * (db.scale or 1)
+    if self.SetIgnoreParentScale then
+        self:SetIgnoreParentScale(true)
+        self:SetScale(scale)
+    else
+        local ok, parentScale = pcall(self.nameplate.GetEffectiveScale, self.nameplate)
+        parentScale = ok and Plain(parentScale)
+        if parentScale and parentScale > 0 then self:SetScale(scale / parentScale) end
+    end
     self.health:SetSize(db.width, db.height)
     self.name:SetFont(FONT, db.nameSize, "OUTLINE")
-    self.name:SetWidth(db.width + 40)
+    self.name:SetWidth(db.width + 60)
+    self:PlaceName()
     local small = math.max(db.nameSize - 2, 7)
     self.level:SetFont(FONT, small, "OUTLINE")
     self.healthText:SetFont(FONT, small, "OUTLINE")
@@ -240,6 +301,17 @@ function Plate:ApplyLayout()
     for _, button in ipairs(self.auraButtons) do
         button:SetSize(db.auraWidth, math.floor(db.auraWidth * 0.65 + 0.5))
         button.count:SetFont(FONT, small, "OUTLINE")
+    end
+end
+
+-- The name overlaps the top edge of the bar. With no bar it takes the bar's place.
+function Plate:PlaceName()
+    local name = self.name
+    name:ClearAllPoints()
+    if self.nameOnly then
+        name:SetPoint("CENTER", self.health, "CENTER", 0, 0)
+    else
+        name:SetPoint("BOTTOM", self.health, "TOP", 0, -math.floor(ns.db.nameSize * 0.36 + 0.5))
     end
 end
 
@@ -396,11 +468,44 @@ local function ThreatStatus(unit)
     return Plain(UnitThreatSituation("player", unit))
 end
 
+-- Friendly units can be shown as just a coloured name, with no bar.
+function Plate:UpdateMode()
+    local unit, db = self.unit, ns.db
+    -- Only when the game plainly says the unit can't be attacked.
+    local nameOnly = db.nameOnly and Plain(UnitCanAttack("player", unit)) == false
+    if nameOnly ~= self.nameOnly then
+        self.nameOnly = nameOnly
+        self.health:SetShown(not nameOnly)
+        self:PlaceName()
+        if nameOnly then self.cast:Hide() end
+    end
+    if not nameOnly then
+        self.name:SetTextColor(1, 1, 1)
+        return
+    end
+    local color
+    if Plain(UnitIsPlayer(unit)) then
+        local class = Plain(select(2, UnitClass(unit)))
+        local cc = class and RAID_CLASS_COLORS[class]
+        if cc then
+            self.name:SetTextColor(cc.r, cc.g, cc.b)
+            return
+        end
+        color = NAME_PLAYER
+    else
+        local reaction = Plain(UnitReaction(unit, "player"))
+        color = (reaction and reaction <= 4) and NAME_NEUTRAL or NAME_FRIENDLY
+    end
+    self.name:SetTextColor(color[1], color[2], color[3])
+end
+
 function Plate:UpdateColor()
     local unit, db = self.unit, ns.db
+    self:UpdateMode()
     local threat = ThreatStatus(unit)
     self.threat = threat
     local color
+    self.health.dim:Hide()
 
     if db.tankMode and threat then
         color = (threat == 3) and COLOR_TANK_OK or COLOR_TANK_BAD
@@ -409,7 +514,7 @@ function Plate:UpdateColor()
         local class = Plain(select(2, UnitClass(unit)))
         local cc = class and RAID_CLASS_COLORS[class]
         if canAttack and db.classColors and cc then
-            color = { cc.r, cc.g, cc.b }
+            color = { cc.r * CLASS_DIM, cc.g * CLASS_DIM, cc.b * CLASS_DIM }
         elseif canAttack then
             color = COLOR_HOSTILE
         else
@@ -425,7 +530,10 @@ function Plate:UpdateColor()
             else color = COLOR_FRIENDLY end
         elseif UnitSelectionColor then
             -- Reaction hidden: let the game pick the colour; widgets accept secrets.
+            -- It can't be toned down with maths, so a dark overlay does it.
             self.health:SetStatusBarColor(UnitSelectionColor(unit))
+            self.health.dim:Show()
+            self.health.fill:SetVertexColor(0.05, 0.03, 0.03, 0.9)
         else
             color = COLOR_HOSTILE
         end
@@ -433,6 +541,8 @@ function Plate:UpdateColor()
 
     if color then
         self.health:SetStatusBarColor(color[1], color[2], color[3])
+        -- The empty part of the bar is a very dark shade of the same colour.
+        self.health.fill:SetVertexColor(color[1] * 0.22, color[2] * 0.22, color[3] * 0.22, 0.9)
     end
     self:UpdateGlow()
 end
@@ -463,16 +573,16 @@ function Plate:UpdateTarget()
     self:UpdateGlow()
 end
 
--- Target gets a soft white glow; otherwise, outside tank mode, a threat glow.
+-- Target gets a soft blue glow; otherwise, outside tank mode, a red threat
+-- glow; everything else a faint dark shadow.
 function Plate:UpdateGlow()
     local threat = self.threat
     if self.isTarget then
-        self.glow:Set(1, 1, 1, 0.75)
+        self.glow:Set(GLOW_TARGET)
     elseif not ns.db.tankMode and threat and threat >= 1 then
-        if threat >= 2 then self.glow:Set(1, 0.1, 0.1, 0.9)
-        else self.glow:Set(1, 0.6, 0.1, 0.9) end
+        self.glow:Set(threat >= 2 and GLOW_THREAT or GLOW_THREAT_LOW)
     else
-        self.glow:Hide()
+        self.glow:Set(GLOW_SHADOW)
     end
 end
 
@@ -506,7 +616,7 @@ end
 
 function Plate:UpdateCast()
     local cast, unit = self.cast, self.unit
-    if not ns.db.castBars then cast:Hide() return end
+    if not ns.db.castBars or self.nameOnly then cast:Hide() return end
     local name, icon, startMS, endMS, channel, notInt = GetCast(unit)
     if name == nil then
         if not cast.hideAt then
@@ -545,7 +655,7 @@ function Plate:ShowInterrupted()
     local cast = self.cast
     -- The STOP event can arrive just before INTERRUPTED and hide the bar first.
     local justStopped = cast.stoppedAt and GetTime() - cast.stoppedAt < 0.2
-    if not ns.db.castBars or not (cast:IsShown() or justStopped) then return end
+    if not ns.db.castBars or self.nameOnly or not (cast:IsShown() or justStopped) then return end
     cast.timed = false
     cast.hideAt = GetTime() + 0.6
     cast:SetMinMaxValues(0, 1)
@@ -583,6 +693,20 @@ function Plate:GetAuraButton(i)
     button.cd = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
     button.cd:SetAllPoints()
     button.cd:SetReverse(true)
+    -- Time left as a small yellow number on the top-left corner. The game
+    -- draws the number itself, so hidden durations still work.
+    pcall(function()
+        button.cd:SetSwipeColor(0, 0, 0, 0.55)
+        button.cd:SetHideCountdownNumbers(false)
+        for _, region in ipairs({ button.cd:GetRegions() }) do
+            if region:GetObjectType() == "FontString" then
+                region:SetFont(FONT, math.max(db.nameSize - 1, 8), "OUTLINE")
+                region:SetTextColor(1, 0.85, 0.25)
+                region:ClearAllPoints()
+                region:SetPoint("TOPLEFT", button, "TOPLEFT", -3, 4)
+            end
+        end
+    end)
     button.count = button:CreateFontString(nil, "OVERLAY")
     button.count:SetFont(FONT, math.max(db.nameSize - 2, 7), "OUTLINE")
     button.count:SetPoint("BOTTOMRIGHT", 2, -2)
@@ -655,6 +779,6 @@ function Plate:UpdateAuras()
         local button = self.auraButtons[i]
         button:ClearAllPoints()
         button:SetPoint("BOTTOMLEFT", self.health, "TOPLEFT",
-            x + (i - 1) * (db.auraWidth + gap), db.nameSize + 7)
+            x + (i - 1) * (db.auraWidth + gap), db.nameSize + 3)
     end
 end

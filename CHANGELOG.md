@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.0
+- Compact look: plates are now sized in screen pixels instead of following the game's nameplate scale, so they are much smaller and stay the same size at any UI scale. New "Overall size" slider and `/kui scale`.
+- Darker, muted bar colours, with the empty part of the bar a dark shade of the same colour.
+- The name now sits on the top edge of the bar; level and health percent sit on the bottom edge.
+- New soft glow: blue on your target, red or orange for threat, and a faint shadow on everything else. Replaces the white box.
+- Friendly units show as a coloured name with no bar (toggle in settings or `/kui friendly`).
+- Debuff timers show as a small number on the corner of each icon.
+
 ## v0.2.0
 - Fixed: errors on WoW: Forever, which hides enemy health and other numbers from addons. Hidden values now go straight to the bars, and percent text comes from the game's own percent API.
 - Fixed: one failing part (cast bar, debuffs, ...) no longer stops the rest of the plate from drawing.
