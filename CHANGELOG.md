@@ -6,6 +6,7 @@
 - The name now sits on the top edge of the bar; level and health percent sit on the bottom edge.
 - New soft glow: blue on your target, red or orange for threat, and a faint shadow on everything else. Replaces the white box.
 - Friendly units show as a coloured name with no bar (toggle in settings or `/kui friendly`).
+- Cast bars: thin pale bar under the health bar with a bright spark on the leading edge, square spell icon to the left of both bars, spell name underneath.
 - Debuff timers show as a small number on the corner of each icon.
 
 ## v0.2.0

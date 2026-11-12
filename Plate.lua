@@ -37,10 +37,10 @@ local NAME_FRIENDLY = { 0.55, 0.95, 0.55 }
 local NAME_NEUTRAL  = { 1.00, 0.90, 0.45 }
 local NAME_PLAYER   = { 0.62, 0.72, 1.00 }
 
-local COLOR_CAST        = { 0.95, 0.75, 0.20 }
-local COLOR_CHANNEL     = { 0.40, 0.80, 0.40 }
-local COLOR_UNINTERRUPT = { 0.60, 0.60, 0.60 }
-local COLOR_INTERRUPTED = { 1.00, 0.20, 0.20 }
+local COLOR_CAST        = { 0.62, 0.62, 0.78 } -- pale grey-lilac
+local COLOR_CHANNEL     = { 0.62, 0.62, 0.78 }
+local COLOR_UNINTERRUPT = { 0.62, 0.44, 0.30 } -- dull orange: can't be interrupted
+local COLOR_INTERRUPTED = { 0.80, 0.20, 0.16 }
 
 -- Unit events each plate listens to, registered only for its own unit.
 -- Some don't exist on every client, so each is registered safely.
@@ -224,7 +224,21 @@ function ns:CreatePlate(nameplate)
     cast:SetStatusBarTexture(BAR)
     cast:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -3)
     cast:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT", 0, -3)
-    AddBorder(cast, 0.85)
+    local castFill = AddBorder(cast, 0.9)
+    castFill:SetVertexColor(0.07, 0.07, 0.11, 0.9)
+    -- Bright spark riding the leading edge of the bar. It is anchored to the
+    -- bar's own texture, so it follows hidden cast timers with no maths.
+    local edge = cast:GetStatusBarTexture()
+    cast.sparkGlow = cast:CreateTexture(nil, "OVERLAY", nil, 1)
+    cast.sparkGlow:SetTexture(SOLID)
+    cast.sparkGlow:SetVertexColor(0.85, 0.85, 1, 0.3)
+    cast.sparkGlow:SetWidth(4)
+    cast.sparkGlow:SetPoint("CENTER", edge, "RIGHT", 0, 0)
+    cast.spark = cast:CreateTexture(nil, "OVERLAY", nil, 2)
+    cast.spark:SetTexture(SOLID)
+    cast.spark:SetVertexColor(0.93, 0.93, 1, 0.95)
+    cast.spark:SetWidth(2)
+    cast.spark:SetPoint("CENTER", edge, "RIGHT", 0, 0)
     cast.icon = cast:CreateTexture(nil, "ARTWORK")
     cast.icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
     cast.icon:SetPoint("TOPRIGHT", health, "TOPLEFT", -3, 0)
@@ -235,8 +249,7 @@ function ns:CreatePlate(nameplate)
     iconBorder:SetPoint("TOPLEFT", cast.icon, -1, 1)
     iconBorder:SetPoint("BOTTOMRIGHT", cast.icon, 1, -1)
     cast.text = cast:CreateFontString(nil, "OVERLAY")
-    cast.text:SetPoint("TOP", cast, "BOTTOM", 0, -2)
-    cast.text:SetShadowOffset(1, -1)
+    cast.text:SetPoint("TOP", cast, "BOTTOM", 0, -3)
     cast:SetScript("OnUpdate", CastOnUpdate)
     cast:Hide()
     plate.cast = cast
@@ -296,7 +309,9 @@ function Plate:ApplyLayout()
     self.level:SetFont(FONT, small, "OUTLINE")
     self.healthText:SetFont(FONT, small, "OUTLINE")
     self.cast:SetHeight(db.castHeight)
-    self.cast.text:SetFont(FONT, small, "OUTLINE")
+    self.cast.spark:SetHeight(db.castHeight + 2)
+    self.cast.sparkGlow:SetHeight(db.castHeight + 2)
+    self.cast.text:SetFont(FONT, math.max(db.nameSize - 1, 7), "OUTLINE")
     self.cast.icon:SetWidth(db.height + db.castHeight + 3)
     for _, button in ipairs(self.auraButtons) do
         button:SetSize(db.auraWidth, math.floor(db.auraWidth * 0.65 + 0.5))
@@ -647,6 +662,8 @@ function Plate:UpdateCast()
     cast:SetStatusBarColor(c[1], c[2], c[3])
     cast.icon:SetTexture(icon)
     cast.text:SetText(name)
+    cast.spark:Show()
+    cast.sparkGlow:Show()
     if not cast.timed or GetTime() < cast.endTime then cast:Show() end
 end
 
@@ -662,6 +679,8 @@ function Plate:ShowInterrupted()
     cast:SetValue(1)
     cast:SetStatusBarColor(COLOR_INTERRUPTED[1], COLOR_INTERRUPTED[2], COLOR_INTERRUPTED[3])
     cast.text:SetText(INTERRUPTED or "Interrupted")
+    cast.spark:Hide()
+    cast.sparkGlow:Hide()
     cast:Show()
 end
 

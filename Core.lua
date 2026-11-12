@@ -15,7 +15,8 @@ ns.defaults = {
     showLevel = false,
     tankMode = false,     -- colour bars by whether you hold threat
     castBars = true,
-    castHeight = 5,
+    castHeight = 4,
+    thinCast = true,      -- marks saved settings as already moved to the thin cast bar
     auras = true,         -- your debuffs on enemies
     maxAuras = 6,
     auraWidth = 22,
@@ -83,7 +84,10 @@ end
 function ns:ADDON_LOADED(name)
     if name ~= ADDON then return end
     events:UnregisterEvent("ADDON_LOADED")
-    KuiNameplatesForeverDB = CopyDefaults(self.defaults, KuiNameplatesForeverDB or {})
+    local saved = KuiNameplatesForeverDB or {}
+    -- One-time move to the thin cast bar introduced with the v0.3 look.
+    if not saved.thinCast then saved.castHeight = nil end
+    KuiNameplatesForeverDB = CopyDefaults(self.defaults, saved)
     self.db = KuiNameplatesForeverDB
 
     events:RegisterEvent("PLAYER_LOGIN")
