@@ -47,6 +47,9 @@ local function Layout()
             { title = "Other",
               { "slider", "maxDistance", "Max nameplate distance (yards)", 10, 100, 1 },
               { "check", "minimapButton", "Show minimap button" },
+              { "button", "Toggle test mode", function()
+                    ns:SetTestMode(not ns.testMode)
+                end },
               { "button", "Reset to defaults", function(panel)
                     ns:ResetSettings()
                     panel:Refresh()

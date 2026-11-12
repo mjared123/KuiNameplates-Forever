@@ -9,6 +9,7 @@
 - Debuff icons are short, wide and thin-bordered, with the time left as a yellow number on the corner. Each icon is placed by the addon, so they always line up.
 - Debuff borders can be coloured by type: blue magic, purple curse, brown disease, green poison, red bleed (toggle in settings or `/kui colors`).
 - Debuff position: above (centred or from the left), below, or left or right of the bar, plus a distance setting (`/kui debuffpos`, `/kui debuffoffset`).
+- Test mode (`/kui test`, the settings button, or right-click the minimap button): sample enemy and friendly plates with a looping cast and sample debuffs, for trying settings.
 - Minimap button: click opens the settings, drag moves it (toggle in settings or `/kui minimap`).
 - Cast bar styles (settings dropdown or `/kui caststyle`): thin bar, tall bar with the spell name inside, or icon only.
 - Cast bars: thin pale bar under the health bar with a bright spark on the leading edge, square spell icon to the left of both bars, spell name underneath.

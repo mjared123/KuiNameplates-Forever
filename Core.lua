@@ -181,6 +181,7 @@ function ns:RefreshAll()
     end
     self:ApplyAuraCVars()
     if self.UpdateMinimapButton then self:UpdateMinimapButton() end
+    if self.UpdateTestMode then self:UpdateTestMode() end
 end
 
 events:RegisterEvent("ADDON_LOADED")

@@ -46,8 +46,12 @@ local function Create()
     ring:SetSize(53, 53)
     ring:SetPoint("TOPLEFT")
 
-    button:SetScript("OnClick", function()
-        ns:OpenOptions()
+    button:SetScript("OnClick", function(_, mouseButton)
+        if mouseButton == "RightButton" then
+            ns:SetTestMode(not ns.testMode)
+        else
+            ns:OpenOptions()
+        end
     end)
     button:SetScript("OnDragStart", function(self)
         self:SetScript("OnUpdate", OnDragUpdate)
@@ -59,6 +63,7 @@ local function Create()
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         GameTooltip:AddLine("KuiNameplates")
         GameTooltip:AddLine("Click to open settings", 1, 1, 1)
+        GameTooltip:AddLine("Right-click for test mode", 1, 1, 1)
         GameTooltip:AddLine("Drag to move this button", 1, 1, 1)
         GameTooltip:Show()
     end)

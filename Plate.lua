@@ -1104,3 +1104,175 @@ function Plate:DetachAuras()
     auras:SetParent(frame)
     auras:SetScale(1)
 end
+
+-- Test mode --------------------------------------------------------------------
+--
+-- Sample plates in the middle of the screen, so settings can be tried without
+-- finding something to fight: an enemy with a looping cast and sample debuffs,
+-- and a friendly name with a title. Nothing here reads unit data.
+
+local TEST_CAST_ICON = "Interface\\Icons\\Spell_Holy_HolyBolt"
+local TEST_CAST_TIME = 2.5
+local TEST_AURAS = {
+    { icon = "Interface\\Icons\\Spell_Shadow_CurseOfSargeras", dispel = "Curse", time = "12" },
+    { icon = "Interface\\Icons\\Ability_Hunter_Quickshot", dispel = "Poison", time = "17" },
+    { icon = "Interface\\Icons\\Ability_Gouge", time = "4" },
+}
+
+-- Restart the sample cast from the beginning.
+function Plate:TestCast()
+    local cast = self.cast
+    if not ns.db.castBars or self.nameOnly then cast:Hide() return end
+    cast.hideAt = nil
+    cast.channel = false
+    cast.timed = true
+    cast.startTime = GetTime()
+    cast.endTime = cast.startTime + TEST_CAST_TIME
+    cast:SetMinMaxValues(0, TEST_CAST_TIME)
+    cast:SetValue(0)
+    SetCastColor(cast, COLOR_CAST)
+    cast.icon:SetTexture(TEST_CAST_ICON)
+    cast.text:SetText("Holy Light")
+    cast.spark:Show()
+    cast.sparkGlow:Show()
+    cast:Show()
+end
+
+-- Sample debuff icons, drawn and placed the same way as the real ones.
+function Plate:TestAuras(show)
+    local db = ns.db
+    local holder = self.testAuras
+    if not (show and db.auras) then
+        if holder then holder:Hide() end
+        return
+    end
+    if not holder then
+        holder = CreateFrame("Frame", nil, self)
+        holder:SetSize(1, 1)
+        holder:SetPoint("CENTER")
+        holder:SetFrameLevel(self.text:GetFrameLevel() + 1)
+        holder.items = {}
+        for i, info in ipairs(TEST_AURAS) do
+            local item = CreateFrame("Frame", nil, holder)
+            item:SetSize(GAME_ICON_SIZE, ICON_HEIGHT)
+            item.border = item:CreateTexture(nil, "BACKGROUND")
+            item.border:SetTexture(SOLID)
+            item.border:SetAllPoints(item)
+            local icon = item:CreateTexture(nil, "ARTWORK")
+            icon:SetTexture(info.icon)
+            icon:SetPoint("TOPLEFT", 1, -1)
+            icon:SetPoint("BOTTOMRIGHT", -1, 1)
+            icon:SetTexCoord(0.08, 0.92, 0.25, 0.75)
+            item.time = item:CreateFontString(nil, "OVERLAY")
+            item.time:SetPoint("TOPLEFT", item, "TOPLEFT", -3, 5)
+            item.time:SetTextColor(1, 0.85, 0.25)
+            holder.items[i] = item
+        end
+        self.testAuras = holder
+    end
+    local auraScale = db.auraWidth / GAME_ICON_SIZE
+    local fontSize = math.floor(db.nameSize / auraScale + 0.5)
+    holder:SetScale(auraScale)
+    for i, item in ipairs(holder.items) do
+        local info = TEST_AURAS[i]
+        local c = db.auraColors and info.dispel and DISPEL_COLORS[info.dispel]
+        if c then
+            item.border:SetVertexColor(c[1], c[2], c[3], 1)
+        else
+            item.border:SetVertexColor(0, 0, 0, 1)
+        end
+        item.time:SetFont(FONT, fontSize, "OUTLINE")
+        item.time:SetText(info.time)
+    end
+    LayoutIcons(self, holder.items, db.auraSpot or "top", auraScale)
+    holder:Show()
+end
+
+-- Fill a plate with sample values: an enemy you are targeting, or a friend.
+function Plate:ShowTest(friendly)
+    local db = ns.db
+    self.unit = nil
+    self.nameOnly = (friendly and db.nameOnly) and true or false
+    self.hasTitle = (self.nameOnly and db.showTitle) and true or false
+    self.health:SetShown(not self.nameOnly)
+    self.title:SetText("Flight Master")
+    self.title:SetShown(self.hasTitle)
+    self.name:SetText(friendly and "Joan Weber" or "Riverbottom Hunter")
+    self:PlaceName()
+    if self.nameOnly then
+        self.name:SetTextColor(NAME_FRIENDLY[1], NAME_FRIENDLY[2], NAME_FRIENDLY[3])
+    else
+        self.name:SetTextColor(1, 1, 1)
+    end
+
+    local color = friendly and COLOR_FRIENDLY or COLOR_HOSTILE
+    self.health.dim:Hide()
+    self.health:SetMinMaxValues(0, 100)
+    self.health:SetValue(friendly and 100 or 62)
+    self.health:SetStatusBarColor(color[1], color[2], color[3])
+    self.health.fill:SetVertexColor(color[1] * 0.22, color[2] * 0.22, color[3] * 0.22, 0.9)
+    self.healthText:SetAlpha(1)
+    self.healthText:SetText((db.healthText and not friendly) and "62%" or "")
+    self.level:SetText(db.showLevel and "25" or "")
+    self.level:SetTextColor(1, 0.82, 0)
+    self.raidIcon:Hide()
+    self.glow:Set(friendly and GLOW_SHADOW or GLOW_TARGET)
+    self:SetAlpha(1)
+
+    if friendly then self.cast:Hide() else self:TestCast() end
+    self:TestAuras(not friendly)
+    self:Show()
+end
+
+local testHost, testPlates, testTicker
+
+function ns:UpdateTestMode()
+    if not self.testMode or not testPlates then return end
+    testPlates.enemy:ShowTest(false)
+    testPlates.friend:ShowTest(true)
+end
+
+function ns:SetTestMode(on)
+    on = on and true or false
+    if on and not testHost then
+        testHost = CreateFrame("Frame", "KuiNameplatesTestFrame", UIParent)
+        testHost:SetSize(460, 150)
+        testHost:SetPoint("CENTER", UIParent, "CENTER", 0, 190)
+        testHost:SetFrameStrata("MEDIUM")
+        testHost:SetClampedToScreen(true)
+        testHost:SetMovable(true)
+        testHost:EnableMouse(true)
+        testHost:RegisterForDrag("LeftButton")
+        testHost:SetScript("OnDragStart", testHost.StartMoving)
+        testHost:SetScript("OnDragStop", testHost.StopMovingOrSizing)
+        local back = testHost:CreateTexture(nil, "BACKGROUND")
+        back:SetTexture(SOLID)
+        back:SetVertexColor(0, 0, 0, 0.35)
+        back:SetAllPoints(testHost)
+        local label = testHost:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+        label:SetPoint("BOTTOM", 0, 5)
+        label:SetText("KuiNameplates test mode. Drag to move. Type /kui test to close.")
+
+        local function MakePlate(x)
+            local host = CreateFrame("Frame", nil, testHost)
+            host:SetSize(170, 50)
+            host:SetPoint("CENTER", testHost, "CENTER", x, 0)
+            return ns:CreatePlate(host)
+        end
+        testPlates = { enemy = MakePlate(-100), friend = MakePlate(125) }
+    end
+    self.testMode = on
+    if testHost then testHost:SetShown(on) end
+    if testTicker then
+        testTicker:Cancel()
+        testTicker = nil
+    end
+    if on then
+        self:UpdateTestMode()
+        if C_Timer and C_Timer.NewTicker then
+            testTicker = C_Timer.NewTicker(TEST_CAST_TIME + 0.7, function()
+                ns.Try(testPlates.enemy.TestCast, testPlates.enemy)
+            end)
+        end
+    end
+end

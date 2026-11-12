@@ -41,6 +41,7 @@ end
 local function Help()
     ns.Print("commands:")
     print("  /kui config  - open the settings panel")
+    print("  /kui test  - show sample plates to try settings on")
     print("  /kui range [yards]  - show or set max nameplate distance")
     print("  /kui width|height|font <n>  - bar size and name font size")
     print("  /kui scale <0.5-2>  - overall plate size")
@@ -74,6 +75,9 @@ local function Handle(msg)
         else
             ns.Print("max nameplate distance: " .. tostring(GetCVar("nameplateMaxDistance")))
         end
+    elseif cmd == "test" then
+        ns:SetTestMode(not ns.testMode)
+        ns.Print("test mode " .. OnOff(ns.testMode))
     elseif cmd == "caststyle" then
         if arg and ns.CAST_STYLE_NAMES[arg] then
             db.castStyle = arg
