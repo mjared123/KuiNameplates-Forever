@@ -3,6 +3,7 @@
 ## Notes: Unofficial Kui-style nameplates for WoW: Forever. Not affiliated with Kesava's Kui Nameplates.
 ## Author: mjared123
 ## Version: @project-version@
+## X-License: All Rights Reserved
 ## SavedVariables: KuiNameplatesForeverDB
 
 Core.lua

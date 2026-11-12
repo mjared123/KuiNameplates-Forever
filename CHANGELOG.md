@@ -1,6 +1,7 @@
 # Changelog
 
 ## v0.3.0
+- License changed from MIT to All Rights Reserved. Earlier versions keep the MIT License.
 - Compact look: plates are now sized in screen pixels instead of following the game's nameplate scale, so they are much smaller and stay the same size at any UI scale. New "Overall size" slider and `/kui scale`.
 - Darker, muted bar colours, with the empty part of the bar a dark shade of the same colour.
 - The name now sits on the top edge of the bar; level and health percent sit on the bottom edge.
