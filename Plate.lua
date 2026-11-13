@@ -754,18 +754,27 @@ function Plate:UpdateRaidIcon()
     end
 end
 
--- Raid mark position: left of the bar, clear of the cast icon. When auras
--- use that side it moves above the name, and on a name-only plate it sits
--- above the name.
+ns.RAID_SPOTS = { "top", "left", "right" }
+ns.RAID_SPOT_NAMES = {
+    top = "Above the name and debuffs",
+    left = "Left of the bar",
+    right = "Right of the bar",
+}
+
+-- Raid mark position. "top" stacks it above the name and any debuff rows;
+-- "left" and "right" put it beside the bar, clear of the cast icon. If
+-- debuffs already use that side, or the plate is just a name, it goes on
+-- top instead.
 function Plate:PlaceRaidIcon()
     local db, icon = ns.db, self.raidIcon
+    local size = db.raidSize or 22
+    icon:SetSize(size, size)
     icon:ClearAllPoints()
-    local spot = db.auraSpot or "top"
+    local spot = db.raidSpot or "top"
+    local auraSpot = db.auras and (db.auraSpot or "top")
     if self.nameOnly then
         icon:SetPoint("BOTTOM", self.name, "TOP", 0, 2)
-    elseif spot == "left" or spot == "right" then
-        icon:SetPoint("BOTTOM", self.name, "TOP", 0, 0)
-    else
+    elseif spot == "left" and auraSpot ~= "left" then
         local x = 4
         if db.castBars and db.castStyle == "tall" then
             x = db.height + db.castHeight + 20
@@ -773,6 +782,16 @@ function Plate:PlaceRaidIcon()
             x = db.height + db.castHeight + 9
         end
         icon:SetPoint("RIGHT", self.health, "LEFT", -x, 0)
+    elseif spot == "right" and auraSpot ~= "right" then
+        -- Past the DoT prediction skull when that is on.
+        local x = db.dotPrediction and 20 or 4 -- that skull is 12 wide
+        icon:SetPoint("LEFT", self.health, "RIGHT", x, 0)
+    elseif (self.debuffHeight or 0) > 0 then
+        -- Just above the highest debuff row, with room for its timer text.
+        local y = db.nameSize + 3 + (db.auraOffset or 0) + self.debuffHeight + 5
+        icon:SetPoint("BOTTOM", self.health, "TOP", 0, y)
+    else
+        icon:SetPoint("BOTTOM", self.name, "TOP", 0, 1)
     end
 end
 
@@ -1086,6 +1105,26 @@ local function LayoutIcons(plate, items, spot, auraScale)
     end
 end
 
+-- How far the debuff rows reach above the name, in plate units, so the raid
+-- mark can sit on top of them. 0 when no debuffs are shown above the bar.
+local function DebuffHeight(items, spot, auraScale)
+    local n = #items
+    if n == 0 or not (spot == "top" or spot == "topleft") then return 0 end
+    local k = auraScale * (Plain(items[1]:GetScale()) or 1)
+    if k <= 0 then k = auraScale end
+    local step = GAME_ICON_SIZE + ICON_GAP
+    local across = math.max(1, math.floor((ns.db.width / k + ICON_GAP) / step))
+    local rows = math.ceil(n / across)
+    return ((rows - 1) * ROW_STEP + ICON_HEIGHT) * k
+end
+
+-- Remember that height and move the raid mark to match.
+local function SetDebuffHeight(plate, items, spot, auraScale)
+    local ok, height = pcall(DebuffHeight, items, spot, auraScale)
+    plate.debuffHeight = ok and height or 0
+    Try(plate.PlaceRaidIcon, plate)
+end
+
 local function ShownChildren(list, into)
     if not list then return into end
     for _, item in ipairs({ list:GetChildren() }) do
@@ -1128,6 +1167,7 @@ local function ArrangeAuras(auras)
     -- Then place every icon exactly.
     Try(table.sort, debuffs, ByLayoutIndex)
     Try(LayoutIcons, plate, debuffs, spot, auraScale)
+    SetDebuffHeight(plate, debuffs, spot, auraScale)
     -- Enemy buffs and crowd control go beside the bar, away from the debuffs.
     Try(LayoutIcons, plate, others, side, auraScale)
     for _, items in ipairs({ debuffs, others }) do
@@ -1196,6 +1236,8 @@ function Plate:DetachAuras()
     local frame, auras = self.gameFrame, self.gameAuras
     if not auras then return end
     self.gameFrame, self.gameAuras = nil, nil
+    self.debuffHeight = 0
+    Try(self.PlaceRaidIcon, self)
     if auraOwners[frame] == self then auraOwners[frame] = nil end
     if auraPlates[auras] == self then auraPlates[auras] = nil end
     auras:SetParent(frame)
@@ -1241,6 +1283,8 @@ function Plate:TestAuras(show)
     local holder = self.testAuras
     if not (show and db.auras) then
         if holder then holder:Hide() end
+        self.debuffHeight = 0
+        self:PlaceRaidIcon()
         return
     end
     if not holder then
@@ -1282,6 +1326,7 @@ function Plate:TestAuras(show)
         item.time:SetText(info.time)
     end
     LayoutIcons(self, holder.items, db.auraSpot or "top", auraScale)
+    SetDebuffHeight(self, holder.items, db.auraSpot or "top", auraScale)
     holder:Show()
 end
 

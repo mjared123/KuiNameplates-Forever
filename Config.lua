@@ -28,6 +28,7 @@ local numbers = {
     icons = { key = "auraWidth", min = 12, max = 40 },
     debuffoffset = { key = "auraOffset", min = -20, max = 40 },
     friendlyheight = { key = "nameOnlyOffset", min = -40, max = 60 },
+    marksize = { key = "raidSize", min = 12, max = 40 },
 }
 
 function ns:ResetSettings()
@@ -53,6 +54,8 @@ local function Help()
     print("  /kui debuffpos top|topleft|bottom|left|right  - where debuff icons sit")
     print("  /kui debuffoffset <n>  - move debuff icons further from the bar")
     print("  /kui friendlyheight <n>  - raise or lower friendly names")
+    print("  /kui markpos top|left|right  - where raid marks sit")
+    print("  /kui marksize <12-40>  - raid mark size")
     print("  /kui class|tank|level|hp|cast|debuffs|friendly|colors|minimap|titles|dots  - toggle features")
     print("  /kui reset  - restore defaults")
 end
@@ -98,6 +101,12 @@ local function Handle(msg)
             ns:RefreshAll()
         end
         ns.Print("debuff position: " .. tostring(db.auraSpot) .. " (top, topleft, bottom, left, right)")
+    elseif cmd == "markpos" then
+        if arg and ns.RAID_SPOT_NAMES[arg] then
+            db.raidSpot = arg
+            ns:RefreshAll()
+        end
+        ns.Print("raid mark position: " .. tostring(db.raidSpot) .. " (top, left, right)")
     elseif toggles[cmd] then
         local t = toggles[cmd]
         db[t.key] = not db[t.key]

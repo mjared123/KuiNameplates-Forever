@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.1
+- Raid marks now sit above the name by default, stacked on top of the debuff row when debuffs are shown above the bar.
+- New "Raid marks" settings on the General tab: position (above the name and debuffs, left of the bar, or right of the bar) and size. Also `/kui markpos top|left|right` and `/kui marksize <12-40>`. If debuffs use the chosen side, the mark goes on top instead. Friendly name-only plates always show the mark above the name.
+
 ## v0.5.0
 - New experimental option, off by default: DoT damage prediction. A green section at the end of the health bar shows how much damage your DoTs and bleeds will still do, and a red skull beside the bar shows when that is enough to kill, so you can move on to the next target. Turn it on in the new Experimental tab or with `/kui dots`; test mode shows a sample.
 - How it works on WoW: Forever: the addon can't read enemy health, auras or the combat log in combat, so it notes your own DoT casts and reads their damage and duration from the spell tooltip. The game draws the result against the hidden health. It is an estimate: misses, resists, immunities, crits and haste are not counted, and it needs an English client.
