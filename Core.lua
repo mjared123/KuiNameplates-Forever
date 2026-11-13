@@ -6,6 +6,7 @@ ns.plates = {} -- nameplate unit token -> our plate frame
 ns.defaults = {
     width = 132,          -- health bar width
     height = 11,          -- health bar height
+    nameParts = "full",   -- player names: full, first or last
     nameSize = 11,        -- enemy name font size
     nameOffset = 0,       -- moves the enemy name up or down from the bar's top edge
     infoSize = 8,         -- level and health percent font size

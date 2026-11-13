@@ -20,6 +20,7 @@ local function Pages()
               { "slider", "scale", "Overall size", 0.5, 2, 0.05 },
               { "slider", "nonTargetAlpha", "Opacity of plates you aren't targeting", 0, 1, 0.05 },
               { "slider", "maxDistance", "Max nameplate distance (yards)", 10, 100, 1 },
+              { "dropdown", "nameParts", "Player names", ns.NAME_PARTS, ns.NAME_PART_NAMES },
             } },
           { { title = "Tools",
               { "check", "minimapButton", "Show minimap button" },

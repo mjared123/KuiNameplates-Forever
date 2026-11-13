@@ -46,6 +46,7 @@ local function Help()
     print("  /kui width|height|font <n>  - bar size and name font size")
     print("  /kui scale <0.5-2>  - overall plate size")
     print("  /kui alpha <0-1>  - transparency of non-target plates")
+    print("  /kui names full|first|last  - which parts of player names to show")
     print("  /kui caststyle thin|tall|icon  - cast bar style")
     print("  /kui icons <12-40>  - debuff icon size")
     print("  /kui debuffpos top|topleft|bottom|left|right  - where debuff icons sit")
@@ -78,6 +79,12 @@ local function Handle(msg)
     elseif cmd == "test" then
         ns:SetTestMode(not ns.testMode)
         ns.Print("test mode " .. OnOff(ns.testMode))
+    elseif cmd == "names" then
+        if arg and ns.NAME_PART_NAMES[arg] then
+            db.nameParts = arg
+            ns:RefreshAll()
+        end
+        ns.Print("player names: " .. tostring(db.nameParts) .. " (full, first, last)")
     elseif cmd == "caststyle" then
         if arg and ns.CAST_STYLE_NAMES[arg] then
             db.castStyle = arg

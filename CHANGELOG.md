@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.4.0
+- Two-part names: WoW: Forever characters can now have a first name and a surname, and plates show both by default. A new "Player names" setting on the General tab (or `/kui names full|first|last`) switches to first name only or last name only.
+
 ## v0.3.0
 - License changed from MIT to All Rights Reserved. Earlier versions keep the MIT License.
 - Compact look: plates are now sized in screen pixels instead of following the game's nameplate scale, so they are much smaller and stay the same size at any UI scale. New "Overall size" slider and `/kui scale`.

@@ -469,10 +469,66 @@ function Plate:UpdateAll()
     Try(self.AttachAuras, self)
 end
 
+ns.NAME_PARTS = { "full", "first", "last" }
+ns.NAME_PART_NAMES = {
+    full = "First and last name",
+    first = "First name only",
+    last = "Last name only",
+}
+
+-- WoW: Forever characters can have a first name and a surname. The game
+-- joins the two with this separator.
+local function SurnameSeparator()
+    local consts = Constants and Constants.CharacterNameSeparatorConsts
+    local sep = consts and consts.CHARACTERNAME_SURNAME_SEPARATOR
+    if type(sep) == "string" and sep ~= "" then return sep end
+    return " "
+end
+
+-- Pick the parts of a player's name to show. `first` and `last` are plain
+-- strings; `last` may be nil.
+local function ChooseNameParts(first, last, mode)
+    if not last or last == "" then return first end
+    if mode == "first" then return first end
+    if mode == "last" then return last end
+    return first .. SurnameSeparator() .. last
+end
+ns.ChooseNameParts = ChooseNameParts
+
 function Plate:UpdateName()
-    local name = UnitName(self.unit)
-    if name == nil then name = "" end -- nil checks are allowed on hidden values
-    self.name:SetText(name)
+    local unit, label = self.unit, self.name
+    -- UnitName returns the first name and, for characters that have one,
+    -- the surname.
+    local name, surname = UnitName(unit)
+    if name == nil then -- nil checks are allowed on hidden values
+        label:SetText("")
+        return
+    end
+    local mode = ns.db.nameParts or "full"
+    local first, last = Plain(name), Plain(surname)
+
+    if first == nil or (surname ~= nil and last == nil) then
+        -- The game is hiding the text: it can be shown but not inspected.
+        if surname == nil or mode == "first" then
+            label:SetText(name)
+        elseif mode == "last" then
+            label:SetText(surname)
+        elseif not pcall(label.SetFormattedText, label, "%s" .. SurnameSeparator() .. "%s", name, surname) then
+            label:SetText(name)
+        end
+        return
+    end
+
+    -- Some realms hand back both parts joined in the first value. Only
+    -- players have surnames, so NPC names with spaces are left alone.
+    if (last == nil or last == "") and Plain(UnitIsPlayer(unit)) then
+        local sep = SurnameSeparator()
+        local at = first:find(sep, 1, true)
+        if at and at > 1 and at + #sep <= #first then
+            first, last = first:sub(1, at - 1), first:sub(at + #sep)
+        end
+    end
+    label:SetText(ChooseNameParts(first, last, mode))
 end
 
 function Plate:UpdateLevel()
@@ -1202,7 +1258,7 @@ function Plate:ShowTest(friendly)
     self.health:SetShown(not self.nameOnly)
     self.title:SetText("Flight Master")
     self.title:SetShown(self.hasTitle)
-    self.name:SetText(friendly and "Joan Weber" or "Riverbottom Hunter")
+    self.name:SetText(friendly and ChooseNameParts("Joan", "Weber", db.nameParts or "full") or "Riverbottom Hunter")
     self:PlaceName()
     if self.nameOnly then
         self.name:SetTextColor(NAME_FRIENDLY[1], NAME_FRIENDLY[2], NAME_FRIENDLY[3])
