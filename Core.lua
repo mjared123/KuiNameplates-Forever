@@ -34,6 +34,9 @@ ns.defaults = {
     auraOffset = 0,       -- extra distance of the debuff icons from the bar
     raidSpot = "top",     -- raid mark: top (above name and debuffs), left or right of the bar
     raidSize = 22,        -- raid mark size
+    targetArrows = true,  -- arrows either side of your target's bar
+    buffs = true,         -- purgeable and important buffs on enemies
+    buffSpot = "top",     -- buff row: top (above the name) or bottom (below the bar)
     minimapButton = true, -- show the minimap button
     minimapAngle = 215,   -- its place around the minimap, in degrees
     auraColors = true,    -- colour debuff borders by type (poison, curse, ...)
@@ -99,28 +102,37 @@ function ns:PLAYER_REGEN_ENABLED()
     self:ApplyAuraCVars()
 end
 
--- The debuff icons are drawn by the game's own nameplate code (see Plate.lua),
--- so the game's settings decide what it draws. Make sure it shows debuffs on
--- enemies, and all of your debuffs rather than a short built-in list.
+-- Turn on one part of the game's enemy nameplate aura display.
+local function EnableAuraBit(cvar, enum, field)
+    pcall(function()
+        local bit = Enum[enum][field]
+        if not C_CVar.GetCVarBitfield(cvar, bit) then
+            C_CVar.SetCVarBitfield(cvar, bit, true)
+        end
+    end)
+end
+
+-- The debuff and buff icons are drawn by the game's own nameplate code (see
+-- Plate.lua), so the game's settings decide what it draws. Make sure it shows
+-- debuffs and buffs on enemies, and all of your debuffs rather than a short
+-- built-in list. Turning an option off here hides the icons on our plates
+-- but leaves the game's settings alone.
 function ns:ApplyAuraCVars()
-    if not self.db.auras then return end
+    local db = self.db
+    if not (db.auras or db.buffs) then return end
     if InCombatLockdown() then
         events:RegisterEvent("PLAYER_REGEN_ENABLED")
         return
     end
-    pcall(SetCVar, "nameplateShowAllPersonalAuras", "1")
-    pcall(function()
-        local npc = Enum.NamePlateEnemyNpcAuraDisplay.Debuffs
-        if not C_CVar.GetCVarBitfield("nameplateEnemyNpcAuraDisplay", npc) then
-            C_CVar.SetCVarBitfield("nameplateEnemyNpcAuraDisplay", npc, true)
-        end
-    end)
-    pcall(function()
-        local player = Enum.NamePlateEnemyPlayerAuraDisplay.Debuffs
-        if not C_CVar.GetCVarBitfield("nameplateEnemyPlayerAuraDisplay", player) then
-            C_CVar.SetCVarBitfield("nameplateEnemyPlayerAuraDisplay", player, true)
-        end
-    end)
+    if db.auras then
+        pcall(SetCVar, "nameplateShowAllPersonalAuras", "1")
+        EnableAuraBit("nameplateEnemyNpcAuraDisplay", "NamePlateEnemyNpcAuraDisplay", "Debuffs")
+        EnableAuraBit("nameplateEnemyPlayerAuraDisplay", "NamePlateEnemyPlayerAuraDisplay", "Debuffs")
+    end
+    if db.buffs then
+        EnableAuraBit("nameplateEnemyNpcAuraDisplay", "NamePlateEnemyNpcAuraDisplay", "Buffs")
+        EnableAuraBit("nameplateEnemyPlayerAuraDisplay", "NamePlateEnemyPlayerAuraDisplay", "Buffs")
+    end
 end
 
 function ns:ADDON_LOADED(name)

@@ -17,6 +17,8 @@ local toggles = {
     minimap = { key = "minimapButton", label = "Minimap button" },
     titles = { key = "showTitle", label = "NPC titles and guild names" },
     dots = { key = "dotPrediction", label = "DoT damage prediction (experimental)" },
+    arrows = { key = "targetArrows", label = "Target arrows" },
+    buffs = { key = "buffs", label = "Enemy buff icons" },
 }
 
 local numbers = {
@@ -56,7 +58,8 @@ local function Help()
     print("  /kui friendlyheight <n>  - raise or lower friendly names")
     print("  /kui markpos top|left|right  - where raid marks sit")
     print("  /kui marksize <12-40>  - raid mark size")
-    print("  /kui class|tank|level|hp|cast|debuffs|friendly|colors|minimap|titles|dots  - toggle features")
+    print("  /kui buffpos top|bottom  - buff icons above the name or below the bar")
+    print("  /kui class|tank|level|hp|cast|debuffs|buffs|arrows|friendly|colors|minimap|titles|dots  - toggle features")
     print("  /kui reset  - restore defaults")
 end
 
@@ -107,6 +110,12 @@ local function Handle(msg)
             ns:RefreshAll()
         end
         ns.Print("raid mark position: " .. tostring(db.raidSpot) .. " (top, left, right)")
+    elseif cmd == "buffpos" then
+        if arg and ns.BUFF_SPOT_NAMES[arg] then
+            db.buffSpot = arg
+            ns:RefreshAll()
+        end
+        ns.Print("buff position: " .. tostring(db.buffSpot) .. " (top, bottom)")
     elseif toggles[cmd] then
         local t = toggles[cmd]
         db[t.key] = not db[t.key]

@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.0
+- Target arrows: two blue arrows either side of your target's bar, pointing in at it. On by default; turn them off on the General tab or with `/kui arrows`. They sit just outside the bar and step out past the cast icon while your target casts. Debuffs, crowd control and raid marks placed beside the bar now keep clear of them.
+- Enemy buffs: a row of the buffs you can purge or spellsteal (plus a few important ones the game flags) on enemy plates, with magic buffs outlined in blue. By default the row sits above your debuffs, with the raid mark on top; set it to sit below the bar instead on the new Auras tab or with `/kui buffpos top|bottom`. Toggle with `/kui buffs`. These come from the game's own nameplate buff list, so they work in combat like debuffs do. Buffs no longer sit beside the bar with crowd control.
+- The Debuffs tab is now the Auras tab, with debuff and buff settings together. Test mode shows sample buffs.
+
 ## v0.5.1
 - Raid marks now sit above the name by default, stacked on top of the debuff row when debuffs are shown above the bar.
 - New "Raid marks" settings on the General tab: position (above the name and debuffs, left of the bar, or right of the bar) and size. Also `/kui markpos top|left|right` and `/kui marksize <12-40>`. If debuffs use the chosen side, the mark goes on top instead. Friendly name-only plates always show the mark above the name.

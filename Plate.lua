@@ -11,6 +11,7 @@ local _, ns = ...
 local MEDIA = "Interface\\AddOns\\KuiNameplates\\media\\"
 local BAR = MEDIA .. "bar.tga"
 local GLOW = MEDIA .. "glow.tga"
+local ARROW = MEDIA .. "arrow.tga" -- right-pointing arrowhead, drawn for this addon
 local FONT = MEDIA .. "FrancoisOne.ttf"
 local SOLID = "Interface\\Buttons\\WHITE8X8"
 local RAID_ICONS = "Interface\\TargetingFrame\\UI-RaidTargetingIcons"
@@ -251,6 +252,9 @@ function ns:CreatePlate(nameplate)
     cast.text:SetShadowOffset(1, -1)
     cast:SetScript("OnUpdate", CastOnUpdate)
     cast:Hide()
+    -- Target arrows step out past the cast icon while a cast shows.
+    cast:SetScript("OnShow", function() plate:PlaceArrows() end)
+    cast:SetScript("OnHide", function() plate:PlaceArrows() end)
     plate.cast = cast
 
     plate.pending = {}
@@ -287,6 +291,17 @@ function ns:CreatePlate(nameplate)
     plate.raidIcon:SetSize(22, 22)
     plate.raidIcon:Hide()
 
+    -- Arrows either side of the bar on your target, pointing in at it.
+    plate.arrows = {}
+    for _, side in ipairs({ "left", "right" }) do
+        local arrow = text:CreateTexture(nil, "OVERLAY", nil, -1)
+        arrow:SetTexture(ARROW)
+        if side == "right" then arrow:SetTexCoord(1, 0, 0, 1) end -- mirrored
+        arrow:SetVertexColor(GLOW_TARGET[1], GLOW_TARGET[2], GLOW_TARGET[3], 1)
+        arrow:Hide()
+        plate.arrows[side] = arrow
+    end
+
     plate:SetScript("OnEvent", plate.OnEvent)
     plate:ApplyLayout()
 
@@ -319,6 +334,7 @@ function Plate:ApplyLayout()
     self.healthText:SetFont(FONT, db.infoSize, "OUTLINE")
     self.cast.text:SetFont(FONT, db.castTextSize, "OUTLINE")
     self:LayoutCast()
+    self:PlaceArrows()
     self:PlaceAuras()
 end
 
@@ -781,10 +797,12 @@ function Plate:PlaceRaidIcon()
         elseif db.castBars and db.castStyle ~= "icon" then
             x = db.height + db.castHeight + 9
         end
+        if db.targetArrows then x = ns.ArrowRoom() end
         icon:SetPoint("RIGHT", self.health, "LEFT", -x, 0)
     elseif spot == "right" and auraSpot ~= "right" then
         -- Past the DoT prediction skull when that is on.
         local x = db.dotPrediction and 20 or 4 -- that skull is 12 wide
+        if db.targetArrows then x = ns.ArrowRoom() end
         icon:SetPoint("LEFT", self.health, "RIGHT", x, 0)
     elseif (self.debuffHeight or 0) > 0 then
         -- Just above the highest debuff row, with room for its timer text.
@@ -793,6 +811,56 @@ function Plate:PlaceRaidIcon()
     else
         icon:SetPoint("BOTTOM", self.name, "TOP", 0, 1)
     end
+end
+
+-- Target arrows ----------------------------------------------------------------
+--
+-- Both arrows sit just outside the bar, the same distance either side. While
+-- a cast shows its icon left of the bar, both move out past it, and they
+-- always stay clear of the DoT prediction skull. Anything else placed beside
+-- the bar keeps ArrowRoom() free, so it never sits under an arrow.
+
+local function ArrowSize()
+    return ns.db.height + 8
+end
+
+-- Distance from the bar's edge to the arrow's box.
+local function ArrowGap(casting)
+    local db = ns.db
+    local gap = 2
+    if not (casting and db.castBars) then
+        -- no cast icon to clear
+    elseif db.castStyle == "tall" then
+        gap = db.height + db.castHeight + 11 + 3 + 3
+    elseif db.castStyle ~= "icon" then
+        gap = db.height + db.castHeight + 3 + 3 + 3
+    end
+    if db.dotPrediction then gap = math.max(gap, 4 + 12 + 2) end -- the skull is 12 wide
+    return gap
+end
+
+-- Room that things beside the bar leave for the arrows, in plate units.
+function ns.ArrowRoom()
+    if not ns.db.targetArrows then return 0 end
+    return ArrowGap(true) + ArrowSize() + 2
+end
+
+function Plate:PlaceArrows()
+    if not self.arrows then return end
+    local size, gap = ArrowSize(), ArrowGap(self.cast:IsShown())
+    local left, right = self.arrows.left, self.arrows.right
+    left:SetSize(size, size)
+    right:SetSize(size, size)
+    left:ClearAllPoints()
+    right:ClearAllPoints()
+    left:SetPoint("RIGHT", self.health, "LEFT", -gap, 0)
+    right:SetPoint("LEFT", self.health, "RIGHT", gap, 0)
+end
+
+function Plate:ShowArrows(show)
+    show = (show and ns.db.targetArrows and not self.nameOnly) and true or false
+    self.arrows.left:SetShown(show)
+    self.arrows.right:SetShown(show)
 end
 
 -- Target and glow ------------------------------------------------------------
@@ -811,6 +879,7 @@ function Plate:UpdateTarget()
         self:SetAlpha(ns.db.nonTargetAlpha)
     end
     self:SetFrameLevel(self.isTarget and 10 or 1)
+    self:ShowArrows(self.isTarget)
     self:UpdateGlow()
 end
 
@@ -953,6 +1022,12 @@ ns.AURA_SPOT_NAMES = {
     bottom = "Below", left = "Left of the bar", right = "Right of the bar",
 }
 
+ns.BUFF_SPOTS = { "top", "bottom" }
+ns.BUFF_SPOT_NAMES = {
+    top = "Above the name",
+    bottom = "Below the bar",
+}
+
 -- Remember which aura each icon shows, so its border can be coloured. The
 -- hook runs after the game's own code and does not interfere with it.
 local itemsHooked = false
@@ -1067,7 +1142,10 @@ end
 -- Position a set of icons around the health bar. Every icon is anchored
 -- straight to the bar, so they always line up whatever the game's own row
 -- layout did. Distances are converted from plate units to the icon's scale.
-local function LayoutIcons(plate, items, spot, auraScale)
+--
+-- `stack` (plate units) pushes the rows further out, so a second group can
+-- sit beyond a first one: buffs above or below the debuffs.
+local function LayoutIcons(plate, items, spot, auraScale, stack)
     local n = #items
     if n == 0 then return end
     local db = ns.db
@@ -1075,7 +1153,8 @@ local function LayoutIcons(plate, items, spot, auraScale)
     local k = auraScale * (Plain(items[1]:GetScale()) or 1)
     if k <= 0 then k = auraScale end
     local w, step = GAME_ICON_SIZE, GAME_ICON_SIZE + ICON_GAP
-    local offset = (db.auraOffset or 0) / k
+    local offset = ((db.auraOffset or 0) + (stack or 0)) / k
+    local room = ns.ArrowRoom() / k -- beside the bar, clear of the target arrows
     local across = (spot == "left" or spot == "right") and 3
         or math.max(1, math.floor((db.width / k + ICON_GAP) / step))
 
@@ -1090,10 +1169,10 @@ local function LayoutIcons(plate, items, spot, auraScale)
             item:SetPoint("TOPLEFT", health, "BOTTOM", -rowWidth / 2 + col * step, -y - row * ROW_STEP)
         elseif spot == "left" then
             -- Clear of the cast icon, which sits directly left of the bar.
-            local x = (db.height + db.castHeight + 9) / k + offset
+            local x = math.max((db.height + db.castHeight + 9) / k, room) + offset
             item:SetPoint("RIGHT", health, "LEFT", -x - col * step, -row * ROW_STEP)
         elseif spot == "right" then
-            local x = 5 / k + offset
+            local x = math.max(5 / k, room) + offset
             item:SetPoint("LEFT", health, "RIGHT", x + col * step, -row * ROW_STEP)
         elseif spot == "topleft" then
             local y = (db.nameSize + 3) / k + offset
@@ -1105,11 +1184,15 @@ local function LayoutIcons(plate, items, spot, auraScale)
     end
 end
 
--- How far the debuff rows reach above the name, in plate units, so the raid
--- mark can sit on top of them. 0 when no debuffs are shown above the bar.
-local function DebuffHeight(items, spot, auraScale)
+-- Space between a group of rows and the next group stacked beyond it, in
+-- plate units, with room for the timer text on the outer group's icons.
+local GROUP_GAP = 7
+
+-- Height of a group of icon rows above or below the bar, in plate units.
+-- 0 for an empty group or one beside the bar.
+local function RowsHeight(items, spot, auraScale)
     local n = #items
-    if n == 0 or not (spot == "top" or spot == "topleft") then return 0 end
+    if n == 0 or not (spot == "top" or spot == "topleft" or spot == "bottom") then return 0 end
     local k = auraScale * (Plain(items[1]:GetScale()) or 1)
     if k <= 0 then k = auraScale end
     local step = GAME_ICON_SIZE + ICON_GAP
@@ -1118,10 +1201,44 @@ local function DebuffHeight(items, spot, auraScale)
     return ((rows - 1) * ROW_STEP + ICON_HEIGHT) * k
 end
 
--- Remember that height and move the raid mark to match.
-local function SetDebuffHeight(plate, items, spot, auraScale)
-    local ok, height = pcall(DebuffHeight, items, spot, auraScale)
-    plate.debuffHeight = ok and height or 0
+local function SafeRowsHeight(items, spot, auraScale)
+    local ok, height = pcall(RowsHeight, items, spot, auraScale)
+    return ok and height or 0
+end
+
+local function IsAbove(spot)
+    return spot == "top" or spot == "topleft"
+end
+
+-- Where the buff group goes. Above the name it lines up with debuffs that
+-- start from the left.
+local function BuffSpot()
+    local db = ns.db
+    if db.buffSpot == "bottom" then return "bottom" end
+    return db.auraSpot == "topleft" and "topleft" or "top"
+end
+
+-- Lay out the debuff and buff groups. Debuffs sit nearest the bar; when both
+-- groups are on the same side, buffs stack beyond them. The total height
+-- above the name is kept so the raid mark can sit on top.
+local function LayoutGroups(plate, debuffs, buffs, auraScale)
+    local db = ns.db
+    local debuffSpot = db.auraSpot or "top"
+    local buffSpot = BuffSpot()
+    Try(LayoutIcons, plate, debuffs, debuffSpot, auraScale)
+    local debuffHeight = SafeRowsHeight(debuffs, debuffSpot, auraScale)
+    local sameSide = (IsAbove(debuffSpot) and IsAbove(buffSpot)) or (debuffSpot == buffSpot)
+    local stack = 0
+    if sameSide and debuffHeight > 0 then stack = debuffHeight + GROUP_GAP end
+    Try(LayoutIcons, plate, buffs, buffSpot, auraScale, stack)
+    local buffHeight = SafeRowsHeight(buffs, buffSpot, auraScale)
+
+    local above = 0
+    if IsAbove(debuffSpot) then above = debuffHeight end
+    if IsAbove(buffSpot) and buffHeight > 0 then
+        above = (above > 0) and (above + GROUP_GAP + buffHeight) or buffHeight
+    end
+    plate.debuffHeight = above
     Try(plate.PlaceRaidIcon, plate)
 end
 
@@ -1155,8 +1272,15 @@ local function ArrangeAuras(auras)
     local db = ns.db
     local auraScale = db.auraWidth / GAME_ICON_SIZE
     local fontSize = math.floor(db.nameSize / auraScale + 0.5)
-    local debuffs = ShownChildren(auras.DebuffListFrame, {})
-    local others = ShownChildren(auras.CrowdControlListFrame, ShownChildren(auras.BuffListFrame, {}))
+    -- A group that is switched off is made invisible rather than hidden, so
+    -- the game's own code is left to run as it likes.
+    if auras.DebuffListFrame then auras.DebuffListFrame:SetAlpha(db.auras and 1 or 0) end
+    if auras.BuffListFrame then auras.BuffListFrame:SetAlpha(db.buffs and 1 or 0) end
+    local debuffs = db.auras and ShownChildren(auras.DebuffListFrame, {}) or {}
+    -- On enemies the game keeps only buffs you can purge or steal, and a
+    -- short list of important ones; on friends, the buffs you cast.
+    local buffs = db.buffs and ShownChildren(auras.BuffListFrame, {}) or {}
+    local others = ShownChildren(auras.CrowdControlListFrame, {})
     local spot = db.auraSpot or "top"
     local side = spot == "right" and "left" or "right"
 
@@ -1166,11 +1290,11 @@ local function ArrangeAuras(auras)
     Try(PlaceList, auras.DebuffListFrame, plate, auraScale)
     -- Then place every icon exactly.
     Try(table.sort, debuffs, ByLayoutIndex)
-    Try(LayoutIcons, plate, debuffs, spot, auraScale)
-    SetDebuffHeight(plate, debuffs, spot, auraScale)
-    -- Enemy buffs and crowd control go beside the bar, away from the debuffs.
+    Try(table.sort, buffs, ByLayoutIndex)
+    LayoutGroups(plate, debuffs, buffs, auraScale)
+    -- Crowd control goes beside the bar, away from the debuffs.
     Try(LayoutIcons, plate, others, side, auraScale)
-    for _, items in ipairs({ debuffs, others }) do
+    for _, items in ipairs({ debuffs, buffs, others }) do
         for _, item in ipairs(items) do
             Try(StyleIcon, item, fontSize)
             Try(ResetCooldownLook, item)
@@ -1183,12 +1307,13 @@ local function ArrangeAuras(auras)
     if control then
         local scale = Plain(control:GetScale()) or 1
         if scale <= 0 then scale = 1 end
-        local gap = (5 / auraScale + math.min(#others, 3) * (GAME_ICON_SIZE + ICON_GAP)) / scale
+        local room = math.max(5, ns.ArrowRoom())
+        local gap = (room / auraScale + math.min(#others, 3) * (GAME_ICON_SIZE + ICON_GAP)) / scale
         control:ClearAllPoints()
         if side == "right" then
             control:SetPoint("LEFT", plate.health, "RIGHT", gap, 0)
         else
-            gap = gap + (ns.db.height + ns.db.castHeight + 4) / auraScale / scale
+            gap = gap + math.max(0, ns.db.height + ns.db.castHeight + 4 - room + 5) / auraScale / scale
             control:SetPoint("RIGHT", plate.health, "LEFT", -gap, 0)
         end
     end
@@ -1203,7 +1328,7 @@ end
 
 function Plate:AttachAuras()
     self:DetachAuras()
-    if not ns.db.auras then return end
+    if not (ns.db.auras or ns.db.buffs) then return end
     local frame = self.nameplate.UnitFrame
     local auras = frame and frame.AurasFrame
     if not auras or (auras.IsForbidden and auras:IsForbidden()) then return end
@@ -1242,6 +1367,8 @@ function Plate:DetachAuras()
     if auraPlates[auras] == self then auraPlates[auras] = nil end
     auras:SetParent(frame)
     auras:SetScale(1)
+    if auras.DebuffListFrame then auras.DebuffListFrame:SetAlpha(1) end
+    if auras.BuffListFrame then auras.BuffListFrame:SetAlpha(1) end
 end
 
 -- Test mode --------------------------------------------------------------------
@@ -1256,6 +1383,11 @@ local TEST_AURAS = {
     { icon = "Interface\\Icons\\Spell_Shadow_CurseOfSargeras", dispel = "Curse", time = "12" },
     { icon = "Interface\\Icons\\Ability_Hunter_Quickshot", dispel = "Poison", time = "17" },
     { icon = "Interface\\Icons\\Ability_Gouge", time = "4" },
+}
+-- Purgeable magic buffs, as the game would show on an enemy.
+local TEST_BUFFS = {
+    { icon = "Interface\\Icons\\Spell_Holy_PowerWordShield", dispel = "Magic", time = "24" },
+    { icon = "Interface\\Icons\\Spell_Nature_Rejuvenation", dispel = "Magic", time = "9" },
 }
 
 -- Restart the sample cast from the beginning.
@@ -1277,45 +1409,37 @@ function Plate:TestCast()
     cast:Show()
 end
 
--- Sample debuff icons, drawn and placed the same way as the real ones.
-function Plate:TestAuras(show)
+-- A holder of sample icons, drawn the same way as the real ones.
+local function MakeTestHolder(plate, list)
+    local holder = CreateFrame("Frame", nil, plate)
+    holder:SetSize(1, 1)
+    holder:SetPoint("CENTER")
+    holder:SetFrameLevel(plate.text:GetFrameLevel() + 1)
+    holder.items = {}
+    for i, info in ipairs(list) do
+        local item = CreateFrame("Frame", nil, holder)
+        item:SetSize(GAME_ICON_SIZE, ICON_HEIGHT)
+        item.border = item:CreateTexture(nil, "BACKGROUND")
+        item.border:SetTexture(SOLID)
+        item.border:SetAllPoints(item)
+        local icon = item:CreateTexture(nil, "ARTWORK")
+        icon:SetTexture(info.icon)
+        icon:SetPoint("TOPLEFT", 1, -1)
+        icon:SetPoint("BOTTOMRIGHT", -1, 1)
+        icon:SetTexCoord(0.08, 0.92, 0.25, 0.75)
+        item.time = item:CreateFontString(nil, "OVERLAY")
+        item.time:SetPoint("TOPLEFT", item, "TOPLEFT", -3, 5)
+        item.time:SetTextColor(1, 0.85, 0.25)
+        holder.items[i] = item
+    end
+    return holder
+end
+
+local function StyleTestHolder(holder, list, auraScale, fontSize)
     local db = ns.db
-    local holder = self.testAuras
-    if not (show and db.auras) then
-        if holder then holder:Hide() end
-        self.debuffHeight = 0
-        self:PlaceRaidIcon()
-        return
-    end
-    if not holder then
-        holder = CreateFrame("Frame", nil, self)
-        holder:SetSize(1, 1)
-        holder:SetPoint("CENTER")
-        holder:SetFrameLevel(self.text:GetFrameLevel() + 1)
-        holder.items = {}
-        for i, info in ipairs(TEST_AURAS) do
-            local item = CreateFrame("Frame", nil, holder)
-            item:SetSize(GAME_ICON_SIZE, ICON_HEIGHT)
-            item.border = item:CreateTexture(nil, "BACKGROUND")
-            item.border:SetTexture(SOLID)
-            item.border:SetAllPoints(item)
-            local icon = item:CreateTexture(nil, "ARTWORK")
-            icon:SetTexture(info.icon)
-            icon:SetPoint("TOPLEFT", 1, -1)
-            icon:SetPoint("BOTTOMRIGHT", -1, 1)
-            icon:SetTexCoord(0.08, 0.92, 0.25, 0.75)
-            item.time = item:CreateFontString(nil, "OVERLAY")
-            item.time:SetPoint("TOPLEFT", item, "TOPLEFT", -3, 5)
-            item.time:SetTextColor(1, 0.85, 0.25)
-            holder.items[i] = item
-        end
-        self.testAuras = holder
-    end
-    local auraScale = db.auraWidth / GAME_ICON_SIZE
-    local fontSize = math.floor(db.nameSize / auraScale + 0.5)
     holder:SetScale(auraScale)
     for i, item in ipairs(holder.items) do
-        local info = TEST_AURAS[i]
+        local info = list[i]
         local c = db.auraColors and info.dispel and DISPEL_COLORS[info.dispel]
         if c then
             item.border:SetVertexColor(c[1], c[2], c[3], 1)
@@ -1325,9 +1449,31 @@ function Plate:TestAuras(show)
         item.time:SetFont(FONT, fontSize, "OUTLINE")
         item.time:SetText(info.time)
     end
-    LayoutIcons(self, holder.items, db.auraSpot or "top", auraScale)
-    SetDebuffHeight(self, holder.items, db.auraSpot or "top", auraScale)
     holder:Show()
+end
+
+-- Sample debuffs and buffs, placed the same way as the real ones.
+function Plate:TestAuras(show)
+    local db = ns.db
+    local showDebuffs, showBuffs = show and db.auras, show and db.buffs
+    if showDebuffs and not self.testAuras then self.testAuras = MakeTestHolder(self, TEST_AURAS) end
+    if showBuffs and not self.testBuffs then self.testBuffs = MakeTestHolder(self, TEST_BUFFS) end
+    local auraScale = db.auraWidth / GAME_ICON_SIZE
+    local fontSize = math.floor(db.nameSize / auraScale + 0.5)
+    local debuffs, buffs = {}, {}
+    if showDebuffs then
+        StyleTestHolder(self.testAuras, TEST_AURAS, auraScale, fontSize)
+        debuffs = self.testAuras.items
+    elseif self.testAuras then
+        self.testAuras:Hide()
+    end
+    if showBuffs then
+        StyleTestHolder(self.testBuffs, TEST_BUFFS, auraScale, fontSize)
+        buffs = self.testBuffs.items
+    elseif self.testBuffs then
+        self.testBuffs:Hide()
+    end
+    LayoutGroups(self, debuffs, buffs, auraScale)
 end
 
 -- Fill a plate with sample values: an enemy you are targeting, or a friend.
@@ -1365,6 +1511,7 @@ function Plate:ShowTest(friendly)
         self.raidIcon:Show()
     end
     self.glow:Set(friendly and GLOW_SHADOW or GLOW_TARGET)
+    self:ShowArrows(not friendly)
     self:SetAlpha(1)
 
     if friendly then self.cast:Hide() else self:TestCast() end

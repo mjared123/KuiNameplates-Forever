@@ -13,6 +13,7 @@ Copy the `KuiNameplates` folder into `World of Warcraft/_forever_/Interface/AddO
 - Muted reaction colours, class colours for enemy players
 - Level with elite/rare markers and health percent on the bottom edge of the bar
 - Soft glow: blue on your target, orange or red for threat; optional tank mode bar colours
+- Arrows either side of your target (optional)
 - Crowd control icons next to the bar, raid target icons
 
 **Friendly plates**
@@ -23,9 +24,10 @@ Copy the `KuiNameplates` folder into `World of Warcraft/_forever_/Interface/AddO
 - Three styles: thin, tall with the spell name inside, or icon only
 - Spell icon, leading-edge spark, interrupted flash, uninterruptible colouring
 
-**Debuffs**
+**Auras**
 - Your debuffs on enemies, in combat too, with the time left on the corner
 - Above, below, left or right of the bar, with a distance setting
+- Enemy buffs you can purge or steal in their own row, above the name or below the bar
 - Borders coloured by type (magic, curse, disease, poison, bleed)
 
 **Experimental (off by default)**
@@ -36,8 +38,8 @@ Copy the `KuiNameplates` folder into `World of Warcraft/_forever_/Interface/AddO
 - Batched updates so big pulls at long range stay smooth
 
 ## Settings
-`/kui config`, the minimap button, or Options > AddOns opens the settings, split into General, Enemies, Friendly, Cast bars, Debuffs and Experimental tabs.
-`/kui test` (or right-click the minimap button) shows sample plates, a looping cast and debuffs to try settings on.
+`/kui config`, the minimap button, or Options > AddOns opens the settings, split into General, Enemies, Friendly, Cast bars, Auras and Experimental tabs.
+`/kui test` (or right-click the minimap button) shows sample plates, a looping cast, debuffs and buffs to try settings on.
 `/kui` lists all slash commands.
 
 ## Releasing
