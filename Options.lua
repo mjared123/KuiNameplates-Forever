@@ -59,6 +59,7 @@ local function Pages()
         { name = "Friendly",
           { { title = "Name",
               { "check", "nameOnly", "Show a name only, with no bar" },
+              { "check", "healthName", "Health as name (grey out name by missing health)" },
               { "slider", "friendNameSize", "Name size", 6, 24, 1 },
               { "slider", "nameOnlyOffset", "Height above the head", -40, 60, 1 },
             } },

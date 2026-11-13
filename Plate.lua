@@ -279,6 +279,38 @@ function ns:CreatePlate(nameplate)
         fs:SetShadowOffset(1, -1)
     end
 
+    -- Health as name: on name-only plates the name itself shows health. The
+    -- name above is drawn dark grey (the missing part), and a copy in the
+    -- normal colour is laid exactly over it inside a clipping frame. The
+    -- clip's right edge follows the fill of an invisible status bar covering
+    -- the text, so the game sizes it from the (hidden) health; no maths.
+    local hpBar = CreateFrame("StatusBar", nil, text)
+    hpBar:SetStatusBarTexture(SOLID)
+    hpBar:SetStatusBarColor(0, 0, 0, 0)
+    hpBar:SetAlpha(0)
+    hpBar:SetPoint("TOP", plate.name, "TOP")
+    hpBar:SetPoint("BOTTOM", plate.name, "BOTTOM")
+    hpBar:SetWidth(1)
+    hpBar:SetMinMaxValues(0, 1)
+    hpBar:SetValue(1)
+    local hpClip = CreateFrame("Frame", nil, text)
+    hpClip:SetFrameLevel(text:GetFrameLevel() + 1)
+    hpClip:SetClipsChildren(true)
+    hpClip:SetPoint("TOPLEFT", hpBar, "TOPLEFT")
+    hpClip:SetPoint("BOTTOMLEFT", hpBar, "BOTTOMLEFT")
+    hpClip:SetPoint("RIGHT", hpBar:GetStatusBarTexture(), "RIGHT")
+    local hpHolder = CreateFrame("Frame", nil, hpClip)
+    hpHolder:SetAllPoints(hpClip)
+    local hpText = hpHolder:CreateFontString(nil, "OVERLAY")
+    hpText:SetWordWrap(false)
+    hpText:SetShadowColor(0, 0, 0, 1)
+    hpText:SetShadowOffset(1, -1)
+    hpText:SetPoint("TOPLEFT", plate.name, "TOPLEFT")
+    hpText:SetPoint("BOTTOMRIGHT", plate.name, "BOTTOMRIGHT")
+    hpClip:Hide()
+    plate.hpName = { bar = hpBar, clip = hpClip, text = hpText }
+    plate.nameColor = { 1, 1, 1 }
+
     -- Level and health percent straddle the bottom edge of the bar.
     plate.level = health:CreateFontString(nil, "OVERLAY")
     plate.level:SetPoint("LEFT", health, "BOTTOMLEFT", 2, 1)
@@ -424,6 +456,64 @@ function Plate:PlaceName()
             (db.nameOffset or 0) - math.floor(db.nameSize * 0.36 + 0.5))
     end
     self:PlaceRaidIcon()
+    self:SyncHealthName()
+end
+
+-- Health as name -------------------------------------------------------------
+
+local NAME_MISSING = { 0.35, 0.35, 0.35 } -- the part of the name standing for lost health
+
+-- Set the name's colour. With health as name showing, the colour goes to the
+-- overlay and the name underneath stays grey.
+function Plate:SetNameColor(r, g, b)
+    local c = self.nameColor
+    c[1], c[2], c[3] = r, g, b
+    if self.hpName.clip:IsShown() then
+        self.hpName.text:SetTextColor(r, g, b)
+    else
+        self.name:SetTextColor(r, g, b)
+    end
+end
+
+-- Copy the name's text and font to the overlay and fit the hidden bar to the
+-- text. Values are only passed from one widget to another, never inspected.
+function Plate:SyncHealthName()
+    local hp, name = self.hpName, self.name
+    if not hp.clip:IsShown() then return end
+    local font, size, flags = name:GetFont()
+    if font then hp.text:SetFont(font, size, flags) end
+    hp.text:SetJustifyH(name:GetJustifyH())
+    hp.text:SetText(name:GetText())
+    if not pcall(hp.bar.SetWidth, hp.bar, name:GetStringWidth()) then
+        -- Can't size the bar to the text: fall back to a plain name.
+        self:ShowHealthName(false)
+    end
+end
+
+-- Turn health as name on or off for this plate, keeping the name's colour.
+function Plate:ShowHealthName(show)
+    local hp, c = self.hpName, self.nameColor
+    show = (show and ns.db.healthName and self.nameOnly) and true or false
+    hp.clip:SetShown(show)
+    if show then
+        self.name:SetTextColor(NAME_MISSING[1], NAME_MISSING[2], NAME_MISSING[3])
+        hp.text:SetTextColor(c[1], c[2], c[3])
+        self:SyncHealthName()
+    else
+        self.name:SetTextColor(c[1], c[2], c[3])
+    end
+end
+
+-- Feed the hidden bar. Health may be secret, so it goes straight in.
+function Plate:SetHealthNameValue(cur, max)
+    local bar = self.hpName.bar
+    if cur == nil or max == nil then -- unknown health: show the whole name
+        bar:SetMinMaxValues(0, 1)
+        bar:SetValue(1)
+        return
+    end
+    bar:SetMinMaxValues(0, max)
+    bar:SetValue(cur)
 end
 
 -- Keep Blizzard's own plate hidden underneath ours.
@@ -453,6 +543,8 @@ function Plate:OnUnitRemoved()
     Try(ns.ClearDots, self)
     self.unit = nil
     self.cast:Hide()
+    self:SetHealthNameValue(nil, nil)
+    self:ShowHealthName(false)
     self:Hide()
 end
 
@@ -514,6 +606,11 @@ end
 ns.ChooseNameParts = ChooseNameParts
 
 function Plate:UpdateName()
+    self:SetNameText()
+    self:SyncHealthName()
+end
+
+function Plate:SetNameText()
     local unit, label = self.unit, self.name
     -- UnitName returns the first name and, for characters that have one,
     -- the surname.
@@ -576,6 +673,7 @@ function Plate:UpdateHealth()
     -- Status bars accept secret values directly.
     self.health:SetMinMaxValues(0, max)
     self.health:SetValue(cur)
+    self:SetHealthNameValue(cur, max)
     self:UpdateHealthText(cur, max)
     if self.dotBar then Try(ns.UpdateDots, self) end
 end
@@ -681,8 +779,9 @@ function Plate:UpdateMode()
         if nameOnly then self.cast:Hide() end
     end
     Try(self.UpdateTitle, self)
+    self:ShowHealthName(nameOnly)
     if not nameOnly then
-        self.name:SetTextColor(1, 1, 1)
+        self:SetNameColor(1, 1, 1)
         return
     end
     local color
@@ -690,7 +789,7 @@ function Plate:UpdateMode()
         local class = Plain(select(2, UnitClass(unit)))
         local cc = class and RAID_CLASS_COLORS[class]
         if cc then
-            self.name:SetTextColor(cc.r, cc.g, cc.b)
+            self:SetNameColor(cc.r, cc.g, cc.b)
             return
         end
         color = NAME_PLAYER
@@ -698,7 +797,7 @@ function Plate:UpdateMode()
         local reaction = Plain(UnitReaction(unit, "player"))
         color = (reaction and reaction <= 4) and NAME_NEUTRAL or NAME_FRIENDLY
     end
-    self.name:SetTextColor(color[1], color[2], color[3])
+    self:SetNameColor(color[1], color[2], color[3])
 end
 
 function Plate:UpdateColor()
@@ -1488,10 +1587,13 @@ function Plate:ShowTest(friendly)
     self.name:SetText(friendly and ChooseNameParts("Joan", "Weber", db.nameParts or "full") or "Riverbottom Hunter")
     self:PlaceName()
     if self.nameOnly then
-        self.name:SetTextColor(NAME_FRIENDLY[1], NAME_FRIENDLY[2], NAME_FRIENDLY[3])
+        self:SetNameColor(NAME_FRIENDLY[1], NAME_FRIENDLY[2], NAME_FRIENDLY[3])
     else
-        self.name:SetTextColor(1, 1, 1)
+        self:SetNameColor(1, 1, 1)
     end
+    -- The sample friend is a little hurt, to show health as name.
+    self:SetHealthNameValue(70, 100)
+    self:ShowHealthName(self.nameOnly)
 
     local color = friendly and COLOR_FRIENDLY or COLOR_HOSTILE
     self.health.dim:Hide()

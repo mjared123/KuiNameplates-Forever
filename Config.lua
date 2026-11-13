@@ -16,6 +16,7 @@ local toggles = {
     colors = { key = "auraColors", label = "Debuff borders coloured by type" },
     minimap = { key = "minimapButton", label = "Minimap button" },
     titles = { key = "showTitle", label = "NPC titles and guild names" },
+    hpname = { key = "healthName", label = "Health as name" },
     dots = { key = "dotPrediction", label = "DoT damage prediction (experimental)" },
     arrows = { key = "targetArrows", label = "Target arrows" },
     buffs = { key = "buffs", label = "Enemy buff icons" },
@@ -59,7 +60,7 @@ local function Help()
     print("  /kui markpos top|left|right  - where raid marks sit")
     print("  /kui marksize <12-40>  - raid mark size")
     print("  /kui buffpos top|bottom  - buff icons above the name or below the bar")
-    print("  /kui class|tank|level|hp|cast|debuffs|buffs|arrows|friendly|colors|minimap|titles|dots  - toggle features")
+    print("  /kui class|tank|level|hp|cast|debuffs|buffs|arrows|friendly|hpname|colors|minimap|titles|dots  - toggle features")
     print("  /kui reset  - restore defaults")
 end
 
