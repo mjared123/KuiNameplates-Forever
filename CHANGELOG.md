@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.4.1
+- Fixed raid marks (skull, cross and the rest) never showing on plates. WoW: Forever hides the mark number from addons, and the plate took that as "no mark". Marks now show left of the bar, clear of the cast icon, or above the name on name-only plates and when debuffs sit beside the bar. The sample enemy in test mode shows a skull.
+
 ## v0.4.0
 - Two-part names: WoW: Forever characters can now have a first name and a surname, and plates show both by default. A new "Player names" setting on the General tab (or `/kui names full|first|last`) switches to first name only or last name only.
 

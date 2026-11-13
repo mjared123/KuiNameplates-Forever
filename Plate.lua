@@ -284,8 +284,7 @@ function ns:CreatePlate(nameplate)
 
     plate.raidIcon = text:CreateTexture(nil, "OVERLAY")
     plate.raidIcon:SetTexture(RAID_ICONS)
-    plate.raidIcon:SetSize(16, 16)
-    plate.raidIcon:SetPoint("RIGHT", health, "LEFT", -5, 0)
+    plate.raidIcon:SetSize(22, 22)
     plate.raidIcon:Hide()
 
     plate:SetScript("OnEvent", plate.OnEvent)
@@ -408,6 +407,7 @@ function Plate:PlaceName()
         name:SetPoint("BOTTOM", self.health, "TOP", 0,
             (db.nameOffset or 0) - math.floor(db.nameSize * 0.36 + 0.5))
     end
+    self:PlaceRaidIcon()
 end
 
 -- Keep Blizzard's own plate hidden underneath ours.
@@ -730,13 +730,46 @@ function Plate:UpdateColor()
     self:UpdateGlow()
 end
 
+-- Show a raid mark index (1 to 8) on the icon. The index may be a secret
+-- value, so it goes straight to the texture with no maths or comparisons.
+local function SetRaidIcon(icon, index)
+    if icon.SetSpriteSheetCell then
+        icon:SetSpriteSheetCell(index, 4, 4)
+    else
+        SetRaidTargetIconTexture(icon, index)
+    end
+end
+
 function Plate:UpdateRaidIcon()
-    local index = self.unit and Plain(GetRaidTargetIndex(self.unit))
-    if index then
-        SetRaidTargetIconTexture(self.raidIcon, index)
+    -- Forever hands back the mark as a secret value, so test only for nil.
+    local index = self.unit and GetRaidTargetIndex(self.unit)
+    if Has(index) then
+        SetRaidIcon(self.raidIcon, index)
         self.raidIcon:Show()
     else
         self.raidIcon:Hide()
+    end
+end
+
+-- Raid mark position: left of the bar, clear of the cast icon. When auras
+-- use that side it moves above the name, and on a name-only plate it sits
+-- above the name.
+function Plate:PlaceRaidIcon()
+    local db, icon = ns.db, self.raidIcon
+    icon:ClearAllPoints()
+    local spot = db.auraSpot or "top"
+    if self.nameOnly then
+        icon:SetPoint("BOTTOM", self.name, "TOP", 0, 2)
+    elseif spot == "left" or spot == "right" then
+        icon:SetPoint("BOTTOM", self.name, "TOP", 0, 0)
+    else
+        local x = 4
+        if db.castBars and db.castStyle == "tall" then
+            x = db.height + db.castHeight + 20
+        elseif db.castBars and db.castStyle ~= "icon" then
+            x = db.height + db.castHeight + 9
+        end
+        icon:SetPoint("RIGHT", self.health, "LEFT", -x, 0)
     end
 end
 
@@ -1276,7 +1309,13 @@ function Plate:ShowTest(friendly)
     self.healthText:SetText((db.healthText and not friendly) and "62%" or "")
     self.level:SetText(db.showLevel and "25" or "")
     self.level:SetTextColor(1, 0.82, 0)
-    self.raidIcon:Hide()
+    -- A skull on the sample enemy shows where raid marks go.
+    if friendly then
+        self.raidIcon:Hide()
+    else
+        SetRaidIcon(self.raidIcon, 8)
+        self.raidIcon:Show()
+    end
     self.glow:Set(friendly and GLOW_SHADOW or GLOW_TARGET)
     self:SetAlpha(1)
 
