@@ -28,12 +28,15 @@ Copy the `KuiNameplates` folder into `World of Warcraft/_forever_/Interface/AddO
 - Above, below, left or right of the bar, with a distance setting
 - Borders coloured by type (magic, curse, disease, poison, bleed)
 
+**Experimental (off by default)**
+- DoT damage prediction: a green section at the end of the health bar shows the damage your DoTs and bleeds will still do, and a red skull beside the bar means they are enough to kill. Turn it on in the Experimental tab or with `/kui dots`. It is an estimate read from spell tooltips (English client), so misses, resists, immunities and crits are not counted.
+
 **Range and performance**
 - Max nameplate distance setting for Forever's longer ranges
 - Batched updates so big pulls at long range stay smooth
 
 ## Settings
-`/kui config`, the minimap button, or Options > AddOns opens the settings, split into General, Enemies, Friendly, Cast bars and Debuffs tabs.
+`/kui config`, the minimap button, or Options > AddOns opens the settings, split into General, Enemies, Friendly, Cast bars, Debuffs and Experimental tabs.
 `/kui test` (or right-click the minimap button) shows sample plates, a looping cast and debuffs to try settings on.
 `/kui` lists all slash commands.
 

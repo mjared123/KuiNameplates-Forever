@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.0
+- New experimental option, off by default: DoT damage prediction. A green section at the end of the health bar shows how much damage your DoTs and bleeds will still do, and a red skull beside the bar shows when that is enough to kill, so you can move on to the next target. Turn it on in the new Experimental tab or with `/kui dots`; test mode shows a sample.
+- How it works on WoW: Forever: the addon can't read enemy health, auras or the combat log in combat, so it notes your own DoT casts and reads their damage and duration from the spell tooltip. The game draws the result against the hidden health. It is an estimate: misses, resists, immunities, crits and haste are not counted, and it needs an English client.
+- Counted spells: Rake, Rip, Pounce, Moonfire, Insect Swarm, Rupture, Garrote, Rend, Corruption, Curse of Agony, Immolate, Siphon Life, Shadow Word: Pain, Devouring Plague, Holy Fire and Serpent Sting. DoTs are only counted on your target when you cast them, and they are forgotten if its plate leaves the screen.
+
 ## v0.4.1
 - Fixed raid marks (skull, cross and the rest) never showing on plates. WoW: Forever hides the mark number from addons, and the plate took that as "no mark". Marks now show left of the bar, clear of the cast icon, or above the name on name-only plates and when debuffs sit beside the bar. The sample enemy in test mode shows a skull.
 

@@ -13,6 +13,7 @@ local CONTROL_WIDTH = 230
 --   { "dropdown", key, label, values, names }
 --   { "color", keyPrefix, label }       -- uses keyPrefix .. "R" / "G" / "B"
 --   { "button", label, onClick }
+--   { "note", text }                    -- grey help text
 local function Pages()
     return {
         { name = "General",
@@ -80,6 +81,14 @@ local function Pages()
           { { title = "Placement",
               { "dropdown", "auraSpot", "Position", ns.AURA_SPOTS, ns.AURA_SPOT_NAMES },
               { "slider", "auraOffset", "Distance from the bar", -20, 40, 1 },
+            } },
+        },
+        { name = "Experimental",
+          { { title = "Test features (may change or go away)",
+              { "check", "dotPrediction", "DoT damage prediction (test)" },
+            } },
+          { { title = "About DoT prediction",
+              { "note", "A green section at the end of the health bar shows the damage your DoTs and bleeds will still do. A skull beside the bar means they are enough to kill. It is an estimate from the spell tooltips: misses, resists, immunities and crits are not counted. English client only." },
             } },
         },
     }
@@ -325,6 +334,17 @@ local function CreateColor(page, prefix, text, x, y)
     return button, 30
 end
 
+-- A paragraph of grey help text.
+local function CreateNote(page, text, x, y)
+    local label = page:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    label:SetPoint("TOPLEFT", x, y - 2)
+    label:SetWidth(COLUMN_WIDTH)
+    label:SetJustifyH("LEFT")
+    label:SetText(text)
+    local note = { Refresh = function() end }
+    return note, math.ceil(label:GetStringHeight()) + 8
+end
+
 local function CreateButton(page, text, onClick, x, y, panel)
     local button = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
     button:SetSize(150, 22)
@@ -354,6 +374,8 @@ local function BuildPage(panel, page, columns, widgets)
                     widget, used = CreateDropdown(page, item[2], item[3], item[4], item[5], x, y)
                 elseif kind == "color" then
                     widget, used = CreateColor(page, item[2], item[3], x, y)
+                elseif kind == "note" then
+                    widget, used = CreateNote(page, item[2], x, y)
                 else
                     widget, used = CreateButton(page, item[2], item[3], x, y, panel)
                 end

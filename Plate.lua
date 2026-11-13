@@ -434,6 +434,7 @@ end
 function Plate:OnUnitRemoved()
     self:UnregisterAllEvents()
     Try(self.DetachAuras, self)
+    Try(ns.ClearDots, self)
     self.unit = nil
     self.cast:Hide()
     self:Hide()
@@ -467,6 +468,7 @@ function Plate:UpdateAll()
     Try(self.UpdateTarget, self)
     Try(self.UpdateCast, self)
     Try(self.AttachAuras, self)
+    Try(ns.UpdateDots, self)
 end
 
 ns.NAME_PARTS = { "full", "first", "last" }
@@ -559,6 +561,7 @@ function Plate:UpdateHealth()
     self.health:SetMinMaxValues(0, max)
     self.health:SetValue(cur)
     self:UpdateHealthText(cur, max)
+    if self.dotBar then Try(ns.UpdateDots, self) end
 end
 
 function Plate:UpdateHealthText(cur, max)
@@ -1321,6 +1324,9 @@ function Plate:ShowTest(friendly)
 
     if friendly then self.cast:Hide() else self:TestCast() end
     self:TestAuras(not friendly)
+    -- Sample DoT damage of 70 against 62 health, so the skull shows too.
+    self.testDots = (not friendly) and 70 or nil
+    Try(ns.UpdateDots, self)
     self:Show()
 end
 

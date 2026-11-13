@@ -16,6 +16,7 @@ local toggles = {
     colors = { key = "auraColors", label = "Debuff borders coloured by type" },
     minimap = { key = "minimapButton", label = "Minimap button" },
     titles = { key = "showTitle", label = "NPC titles and guild names" },
+    dots = { key = "dotPrediction", label = "DoT damage prediction (experimental)" },
 }
 
 local numbers = {
@@ -52,7 +53,7 @@ local function Help()
     print("  /kui debuffpos top|topleft|bottom|left|right  - where debuff icons sit")
     print("  /kui debuffoffset <n>  - move debuff icons further from the bar")
     print("  /kui friendlyheight <n>  - raise or lower friendly names")
-    print("  /kui class|tank|level|hp|cast|debuffs|friendly|colors|minimap|titles  - toggle features")
+    print("  /kui class|tank|level|hp|cast|debuffs|friendly|colors|minimap|titles|dots  - toggle features")
     print("  /kui reset  - restore defaults")
 end
 

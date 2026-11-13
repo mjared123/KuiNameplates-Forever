@@ -8,6 +8,7 @@
 
 Core.lua
 Plate.lua
+Dots.lua
 Config.lua
 Options.lua
 Minimap.lua

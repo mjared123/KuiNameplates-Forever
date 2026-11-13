@@ -36,6 +36,7 @@ ns.defaults = {
     minimapAngle = 215,   -- its place around the minimap, in degrees
     auraColors = true,    -- colour debuff borders by type (poison, curse, ...)
     maxDistance = nil,    -- nameplateMaxDistance CVar; nil leaves the game's value
+    dotPrediction = false, -- experimental: DoT damage still to come on the health bar
 }
 
 local function CopyDefaults(src, dst)
@@ -147,6 +148,7 @@ ns.UI_SCALE_CHANGED = ns.DISPLAY_SIZE_CHANGED
 function ns:PLAYER_LOGIN()
     self:ApplyCVars()
     self:ApplyAuraCVars()
+    if self.ApplyDotPrediction then self:ApplyDotPrediction() end
     if self.CreateOptions then self:CreateOptions() end
     if self.UpdateMinimapButton then self:UpdateMinimapButton() end
 end
@@ -188,6 +190,7 @@ function ns:RefreshAll()
         plate:UpdateAll()
     end
     self:ApplyAuraCVars()
+    if self.ApplyDotPrediction then self:ApplyDotPrediction() end
     if self.UpdateMinimapButton then self:UpdateMinimapButton() end
     if self.UpdateTestMode then self:UpdateTestMode() end
 end
