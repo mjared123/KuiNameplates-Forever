@@ -915,8 +915,9 @@ end
 -- Target arrows ----------------------------------------------------------------
 --
 -- Both arrows sit just outside the bar, the same distance either side. While
--- a cast shows its icon left of the bar, both move out past it, and they
--- always stay clear of the DoT prediction skull. Anything else placed beside
+-- a cast shows its icon left of the bar, the left arrow moves out past it;
+-- the right arrow never moves, as nothing appears on that side. Both always
+-- stay clear of the DoT prediction skull. Anything else placed beside
 -- the bar keeps ArrowRoom() free, so it never sits under an arrow.
 
 local function ArrowSize()
@@ -946,14 +947,15 @@ end
 
 function Plate:PlaceArrows()
     if not self.arrows then return end
-    local size, gap = ArrowSize(), ArrowGap(self.cast:IsShown())
+    local size = ArrowSize()
+    local leftGap, rightGap = ArrowGap(self.cast:IsShown()), ArrowGap(false)
     local left, right = self.arrows.left, self.arrows.right
     left:SetSize(size, size)
     right:SetSize(size, size)
     left:ClearAllPoints()
     right:ClearAllPoints()
-    left:SetPoint("RIGHT", self.health, "LEFT", -gap, 0)
-    right:SetPoint("LEFT", self.health, "RIGHT", gap, 0)
+    left:SetPoint("RIGHT", self.health, "LEFT", -leftGap, 0)
+    right:SetPoint("LEFT", self.health, "RIGHT", rightGap, 0)
 end
 
 function Plate:ShowArrows(show)

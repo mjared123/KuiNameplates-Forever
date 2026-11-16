@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.6.2
+- Fixed: the right target arrow no longer jumps outwards while your target casts. Only the left arrow steps out, to clear the spell icon.
+
 ## v0.6.1
 - Health as name: on plates that show only a name (friendly units), the name now shows health. The healthy part is in the usual name colour and the missing part turns dark grey from the right, so at half health the right half of the name is grey. Names at full health look the same as before. On by default; turn it off on the Friendly tab or with `/kui hpname`. The sample friend in test mode is a little hurt to show it.
 
