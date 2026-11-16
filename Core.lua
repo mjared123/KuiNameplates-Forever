@@ -36,6 +36,11 @@ ns.defaults = {
     raidSpot = "top",     -- raid mark: top (above name and debuffs), left or right of the bar
     raidSize = 22,        -- raid mark size
     targetArrows = true,  -- arrows either side of your target's bar
+    comboPoints = true,   -- combo point pips on your target's plate
+    targetName = false,   -- each enemy's target named under its bar
+    castTextOffset = 0,   -- spell name moved up (+) or down (-)
+    auraTextSize = 11,    -- aura timer and stack text size
+    font = nil,           -- set in Fonts.lua from the client language
     buffs = true,         -- purgeable and important buffs on enemies
     buffSpot = "top",     -- buff row: top (above the name) or bottom (below the bar)
     minimapButton = true, -- show the minimap button
@@ -175,6 +180,7 @@ function ns:NAME_PLATE_UNIT_ADDED(unit)
     local plate = nameplate.KuiForeverPlate or self:CreatePlate(nameplate)
     self.plates[unit] = plate
     plate:OnUnitAdded(unit)
+    if self.UpdateCombo then self.Try(self.UpdateCombo, self) end
 end
 
 function ns:NAME_PLATE_UNIT_REMOVED(unit)
@@ -188,6 +194,7 @@ function ns:PLAYER_TARGET_CHANGED()
     for _, plate in pairs(self.plates) do
         plate:UpdateTarget()
     end
+    if self.UpdateCombo then self.Try(self.UpdateCombo, self) end
 end
 
 function ns:RAID_TARGET_UPDATE()
@@ -206,6 +213,7 @@ function ns:RefreshAll()
     end
     self:ApplyAuraCVars()
     if self.ApplyDotPrediction then self:ApplyDotPrediction() end
+    if self.UpdateCombo then self.Try(self.UpdateCombo, self) end
     if self.UpdateMinimapButton then self:UpdateMinimapButton() end
     if self.UpdateTestMode then self:UpdateTestMode() end
 end

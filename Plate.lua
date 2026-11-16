@@ -12,7 +12,6 @@ local MEDIA = "Interface\\AddOns\\KuiNameplates\\media\\"
 local BAR = MEDIA .. "bar.tga"
 local GLOW = MEDIA .. "glow.tga"
 local ARROW = MEDIA .. "arrow.tga" -- right-pointing arrowhead, drawn for this addon
-local FONT = MEDIA .. "FrancoisOne.ttf"
 local SOLID = "Interface\\Buttons\\WHITE8X8"
 local RAID_ICONS = "Interface\\TargetingFrame\\UI-RaidTargetingIcons"
 local GLOW_SIZE = 7      -- how far the glow reaches past the bar
@@ -52,6 +51,7 @@ local UNIT_EVENTS = {
     "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
     "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED",
     "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE", "UNIT_SPELLCAST_CHANNEL_STOP",
+    "UNIT_TARGET",
 }
 
 local CAST_EVENTS = {
@@ -94,6 +94,7 @@ local function Try(func, ...)
     return ok
 end
 ns.Try = Try
+ns.Plain = Plain
 
 -- Building a plate -----------------------------------------------------------
 
@@ -253,8 +254,9 @@ function ns:CreatePlate(nameplate)
     cast:SetScript("OnUpdate", CastOnUpdate)
     cast:Hide()
     -- Target arrows step out past the cast icon while a cast shows.
-    cast:SetScript("OnShow", function() plate:PlaceArrows() end)
-    cast:SetScript("OnHide", function() plate:PlaceArrows() end)
+    -- The target-of-target name moves below the spell name.
+    cast:SetScript("OnShow", function() plate:PlaceArrows() plate:PlaceTargetName() end)
+    cast:SetScript("OnHide", function() plate:PlaceArrows() plate:PlaceTargetName() end)
     plate.cast = cast
 
     plate.pending = {}
@@ -334,6 +336,13 @@ function ns:CreatePlate(nameplate)
         plate.arrows[side] = arrow
     end
 
+    -- Who this unit is targeting, under the bar.
+    plate.targetName = text:CreateFontString(nil, "OVERLAY")
+    plate.targetName:SetWordWrap(false)
+    plate.targetName:SetShadowColor(0, 0, 0, 1)
+    plate.targetName:SetShadowOffset(1, -1)
+    plate.targetName:Hide()
+
     plate:SetScript("OnEvent", plate.OnEvent)
     plate:ApplyLayout()
 
@@ -358,14 +367,17 @@ function Plate:ApplyLayout()
     end
     self.health:SetSize(db.width, db.height)
     self.name:SetWidth(db.width + 60)
-    self.title:SetFont(FONT, db.titleSize, "OUTLINE")
+    ns.SetFont(self.title, db.titleSize)
     self.title:SetTextColor(db.titleR, db.titleG, db.titleB)
     self.title:SetWidth(db.width + 60)
     self:PlaceName()
-    self.level:SetFont(FONT, db.infoSize, "OUTLINE")
-    self.healthText:SetFont(FONT, db.infoSize, "OUTLINE")
-    self.cast.text:SetFont(FONT, db.castTextSize, "OUTLINE")
+    self.level:SetFont(ns.FontFile(), db.infoSize, "OUTLINE")
+    self.healthText:SetFont(ns.FontFile(), db.infoSize, "OUTLINE")
+    ns.SetFont(self.cast.text, db.castTextSize)
+    ns.SetFont(self.targetName, db.castTextSize)
+    self.targetName:SetWidth(db.width)
     self:LayoutCast()
+    self:PlaceTargetName()
     self:PlaceArrows()
     self:PlaceAuras()
 end
@@ -382,6 +394,7 @@ function Plate:LayoutCast()
     local db, cast, health = ns.db, self.cast, self.health
     local icon, text = cast.icon, cast.text
     local style = ns.CAST_STYLE_NAMES[db.castStyle] and db.castStyle or "thin"
+    local dy = db.castTextOffset or 0 -- the spell name moved up (+) or down (-)
     cast.style = style
     cast:ClearAllPoints()
     icon:ClearAllPoints()
@@ -395,7 +408,7 @@ function Plate:LayoutCast()
         cast:SetPoint("TOP", health, "BOTTOM", 0, -6)
         icon:SetAllPoints(cast)
         icon:SetTexCoord(0.08, 0.92, 0.29, 0.71)
-        text:SetPoint("CENTER", cast, "BOTTOM", 0, -1)
+        text:SetPoint("CENTER", cast, "BOTTOM", 0, -1 + dy)
     elseif style == "tall" then
         -- A taller bar under the health bar with the spell name inside it,
         -- and a square icon to the left as tall as both bars together.
@@ -407,7 +420,7 @@ function Plate:LayoutCast()
         icon:SetPoint("BOTTOMRIGHT", cast, "BOTTOMLEFT", -3, 0)
         icon:SetWidth(db.height + height + 3)
         icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
-        text:SetPoint("CENTER", cast, "CENTER", 0, 0)
+        text:SetPoint("CENTER", cast, "CENTER", 0, dy)
     else
         -- A thin bar under the health bar, a square icon to the left of
         -- both bars, and the spell name underneath.
@@ -419,7 +432,7 @@ function Plate:LayoutCast()
         icon:SetPoint("BOTTOMRIGHT", cast, "BOTTOMLEFT", -3, 0)
         icon:SetWidth(db.height + height + 3)
         icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
-        text:SetPoint("TOP", cast, "BOTTOM", 0, -3)
+        text:SetPoint("TOP", cast, "BOTTOM", 0, -3 + dy)
     end
     cast.spark:SetHeight(height + 2)
     cast.sparkGlow:SetHeight(height + 2)
@@ -439,7 +452,7 @@ function Plate:PlaceName()
     local db = ns.db
     local name, title = self.name, self.title
     -- Names on a bar and names standing on their own have separate sizes.
-    name:SetFont(FONT, self.nameOnly and db.friendNameSize or db.nameSize, "OUTLINE")
+    ns.SetFont(name, self.nameOnly and db.friendNameSize or db.nameSize)
     name:ClearAllPoints()
     title:ClearAllPoints()
     if self.nameOnly and self.hasTitle then
@@ -480,8 +493,17 @@ end
 function Plate:SyncHealthName()
     local hp, name = self.hpName, self.name
     if not hp.clip:IsShown() then return end
-    local font, size, flags = name:GetFont()
-    if font then hp.text:SetFont(font, size, flags) end
+    local object = name:GetFontObject()
+    if object then
+        local r, g, b = hp.text:GetTextColor()
+        hp.text:SetFontObject(object)
+        hp.text:SetTextColor(r, g, b)
+        hp.text:SetShadowColor(0, 0, 0, 1)
+        hp.text:SetShadowOffset(1, -1)
+    else
+        local font, size, flags = name:GetFont()
+        if font then hp.text:SetFont(font, size, flags) end
+    end
     hp.text:SetJustifyH(name:GetJustifyH())
     hp.text:SetText(name:GetText())
     if not pcall(hp.bar.SetWidth, hp.bar, name:GetStringWidth()) then
@@ -556,6 +578,8 @@ function Plate:OnEvent(event)
         Try(self.UpdateCast, self)
     elseif event == "UNIT_SPELLCAST_INTERRUPTED" then
         Try(self.ShowInterrupted, self)
+    elseif event == "UNIT_TARGET" then
+        Try(self.UpdateTargetName, self)
     elseif event == "UNIT_NAME_UPDATE" then
         Try(self.UpdateName, self)
     elseif event == "UNIT_LEVEL" or event == "UNIT_CLASSIFICATION_CHANGED" then
@@ -575,6 +599,7 @@ function Plate:UpdateAll()
     Try(self.UpdateRaidIcon, self)
     Try(self.UpdateTarget, self)
     Try(self.UpdateCast, self)
+    Try(self.UpdateTargetName, self)
     Try(self.AttachAuras, self)
     Try(ns.UpdateDots, self)
 end
@@ -964,6 +989,59 @@ function Plate:ShowArrows(show)
     self.arrows.right:SetShown(show)
 end
 
+-- Target of target -------------------------------------------------------------
+--
+-- The name of whoever this unit is targeting, under the bar: "You" in
+-- orange when it is you, players in their class colour.
+
+local TOT_YOU = { 1.00, 0.50, 0.30 }
+local TOT_OTHER = { 0.86, 0.86, 0.86 }
+
+function Plate:PlaceTargetName()
+    local fs, cast = self.targetName, self.cast
+    if not fs then return end
+    fs:ClearAllPoints()
+    if cast:IsShown() and cast.style == "tall" then
+        fs:SetPoint("TOP", cast, "BOTTOM", 0, -3)
+    elseif cast:IsShown() then
+        fs:SetPoint("TOP", cast.text, "BOTTOM", 0, -1)
+    else
+        fs:SetPoint("TOP", self.health, "BOTTOM", 0, -4)
+    end
+end
+
+function Plate:SetTargetName(text, color)
+    local fs = self.targetName
+    if not pcall(fs.SetFormattedText, fs, "> %s", text) then fs:SetText(text) end
+    fs:SetTextColor(color[1], color[2], color[3])
+    fs:Show()
+end
+
+function Plate:UpdateTargetName()
+    local fs = self.targetName
+    if not (ns.db.targetName and self.unit and not self.nameOnly) then
+        fs:Hide()
+        return
+    end
+    local tt = self.unit .. "target"
+    local name = UnitName(tt)
+    if name == nil then -- no target; nil checks are allowed on hidden values
+        fs:Hide()
+        return
+    end
+    if Plain(UnitIsUnit(tt, "player")) then
+        self:SetTargetName(YOU or "You", TOT_YOU)
+        return
+    end
+    local color = TOT_OTHER
+    if Plain(UnitIsPlayer(tt)) then
+        local class = Plain(select(2, UnitClass(tt)))
+        local cc = class and RAID_CLASS_COLORS[class]
+        if cc then color = { cc.r, cc.g, cc.b } end
+    end
+    self:SetTargetName(name, color)
+end
+
 -- Target and glow ------------------------------------------------------------
 
 function Plate:UpdateTarget()
@@ -982,6 +1060,8 @@ function Plate:UpdateTarget()
     self:SetFrameLevel(self.isTarget and 10 or 1)
     self:ShowArrows(self.isTarget)
     self:UpdateGlow()
+    -- You may have become (or stopped being) this unit's target.
+    Try(self.UpdateTargetName, self)
 end
 
 -- Target gets a soft blue glow; otherwise, outside tank mode, a red threat
@@ -1190,9 +1270,10 @@ end
 -- One-off restyle of a game aura icon: wide crop, thin border, no rounded
 -- mask or frame art, and the timer as a yellow number on the top-left corner.
 local function StyleIcon(item, fontSize)
-    if styledIcons[item] == fontSize then return end
+    local style = fontSize .. ns.FontFile()
+    if styledIcons[item] == style then return end
     local first = not styledIcons[item]
-    styledIcons[item] = fontSize
+    styledIcons[item] = style
     local icon, cd = item.Icon, item.Cooldown
     if first then
         item:SetHeight(ICON_HEIGHT)
@@ -1220,7 +1301,7 @@ local function StyleIcon(item, fontSize)
     if cd then
         for _, region in ipairs({ cd:GetRegions() }) do
             if region:IsObjectType("FontString") then
-                region:SetFont(FONT, fontSize, "OUTLINE")
+                region:SetFont(ns.FontFile(), fontSize, "OUTLINE")
                 region:SetTextColor(1, 0.85, 0.25)
                 region:ClearAllPoints()
                 region:SetPoint("TOPLEFT", item, "TOPLEFT", -3, 5)
@@ -1229,7 +1310,7 @@ local function StyleIcon(item, fontSize)
     end
     local count = item.CountFrame and item.CountFrame.Count
     if count then
-        count:SetFont(FONT, fontSize, "OUTLINE")
+        count:SetFont(ns.FontFile(), fontSize, "OUTLINE")
         count:SetTextColor(1, 1, 1)
         count:ClearAllPoints()
         count:SetPoint("BOTTOMRIGHT", item, "BOTTOMRIGHT", 2, -4)
@@ -1372,7 +1453,7 @@ local function ArrangeAuras(auras)
     if not plate then return end
     local db = ns.db
     local auraScale = db.auraWidth / GAME_ICON_SIZE
-    local fontSize = math.floor(db.nameSize / auraScale + 0.5)
+    local fontSize = math.floor((db.auraTextSize or db.nameSize) / auraScale + 0.5)
     -- A group that is switched off is made invisible rather than hidden, so
     -- the game's own code is left to run as it likes.
     if auras.DebuffListFrame then auras.DebuffListFrame:SetAlpha(db.auras and 1 or 0) end
@@ -1547,7 +1628,7 @@ local function StyleTestHolder(holder, list, auraScale, fontSize)
         else
             item.border:SetVertexColor(0, 0, 0, 1)
         end
-        item.time:SetFont(FONT, fontSize, "OUTLINE")
+        item.time:SetFont(ns.FontFile(), fontSize, "OUTLINE")
         item.time:SetText(info.time)
     end
     holder:Show()
@@ -1560,7 +1641,7 @@ function Plate:TestAuras(show)
     if showDebuffs and not self.testAuras then self.testAuras = MakeTestHolder(self, TEST_AURAS) end
     if showBuffs and not self.testBuffs then self.testBuffs = MakeTestHolder(self, TEST_BUFFS) end
     local auraScale = db.auraWidth / GAME_ICON_SIZE
-    local fontSize = math.floor(db.nameSize / auraScale + 0.5)
+    local fontSize = math.floor((db.auraTextSize or db.nameSize) / auraScale + 0.5)
     local debuffs, buffs = {}, {}
     if showDebuffs then
         StyleTestHolder(self.testAuras, TEST_AURAS, auraScale, fontSize)
@@ -1619,6 +1700,14 @@ function Plate:ShowTest(friendly)
     self:SetAlpha(1)
 
     if friendly then self.cast:Hide() else self:TestCast() end
+    -- The sample enemy is attacking you, and you have three combo points on it.
+    if db.targetName and not friendly then
+        self:SetTargetName(YOU or "You", TOT_YOU)
+    else
+        self.targetName:Hide()
+    end
+    self:PlaceTargetName()
+    if ns.ShowCombo then Try(ns.ShowCombo, self, (db.comboPoints and not friendly) and 3 or nil, 5) end
     self:TestAuras(not friendly)
     -- Sample DoT damage of 70 against 62 health, so the skull shows too.
     self.testDots = (not friendly) and 70 or nil

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.7.0
+- Combo points: rogues and cat-form druids see a row of gold pips on the bottom edge of their target's bar. On by default; toggle on the General tab or with `/kui combo`. Test mode shows three of five.
+- Fonts: a new Font setting on the General tab (or `/kui fontface`) picks Francois One, the game's own name font, Friz Quadrata, Arial Narrow, Morpheus or Skurri. Korean, Chinese and Russian letters now always show, using the game's fonts for those alphabets, and clients in those languages start with the game's font.
+- Target of target: an option to show who each enemy is targeting, under its bar ("> You" in orange when it's you, players in class colours). It moves below the spell name while the enemy casts. Off by default; turn it on on the General tab or with `/kui tot`.
+- Cast bars: a slider to move the spell name up or down (`/kui casttextoffset`).
+- Auras: a slider for the size of the timer and stack numbers on aura icons (`/kui auratext`).
+
 ## v0.6.2
 - Fixed: the right target arrow no longer jumps outwards while your target casts. Only the left arrow steps out, to clear the spell icon.
 

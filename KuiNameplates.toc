@@ -7,8 +7,10 @@
 ## SavedVariables: KuiNameplatesForeverDB
 
 Core.lua
+Fonts.lua
 Plate.lua
 Dots.lua
+Combo.lua
 Config.lua
 Options.lua
 Minimap.lua

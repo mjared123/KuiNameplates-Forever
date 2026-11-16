@@ -18,6 +18,8 @@ local toggles = {
     titles = { key = "showTitle", label = "NPC titles and guild names" },
     hpname = { key = "healthName", label = "Health as name" },
     dots = { key = "dotPrediction", label = "DoT damage prediction (experimental)" },
+    combo = { key = "comboPoints", label = "Combo points on your target" },
+    tot = { key = "targetName", label = "Names of enemies' targets" },
     arrows = { key = "targetArrows", label = "Target arrows" },
     buffs = { key = "buffs", label = "Enemy buff icons" },
 }
@@ -32,6 +34,8 @@ local numbers = {
     debuffoffset = { key = "auraOffset", min = -20, max = 40 },
     friendlyheight = { key = "nameOnlyOffset", min = -40, max = 60 },
     marksize = { key = "raidSize", min = 12, max = 40 },
+    casttextoffset = { key = "castTextOffset", min = -15, max = 15 },
+    auratext = { key = "auraTextSize", min = 6, max = 24 },
 }
 
 function ns:ResetSettings()
@@ -60,7 +64,10 @@ local function Help()
     print("  /kui markpos top|left|right  - where raid marks sit")
     print("  /kui marksize <12-40>  - raid mark size")
     print("  /kui buffpos top|bottom  - buff icons above the name or below the bar")
-    print("  /kui class|tank|level|hp|cast|debuffs|buffs|arrows|friendly|hpname|colors|minimap|titles|dots  - toggle features")
+    print("  /kui fontface francois|game|friz|arial|morpheus|skurri  - text font")
+    print("  /kui casttextoffset <n>  - move the spell name up or down")
+    print("  /kui auratext <n>  - aura timer and stack text size")
+    print("  /kui class|tank|level|hp|cast|debuffs|buffs|arrows|friendly|hpname|colors|minimap|titles|dots|combo|tot  - toggle features")
     print("  /kui reset  - restore defaults")
 end
 
@@ -105,6 +112,12 @@ local function Handle(msg)
             ns:RefreshAll()
         end
         ns.Print("debuff position: " .. tostring(db.auraSpot) .. " (top, topleft, bottom, left, right)")
+    elseif cmd == "fontface" then
+        if arg and ns.FONT_NAMES[arg] then
+            db.font = arg
+            ns:RefreshAll()
+        end
+        ns.Print("font face: " .. tostring(db.font) .. " (" .. table.concat(ns.FONT_KEYS, ", ") .. ")")
     elseif cmd == "markpos" then
         if arg and ns.RAID_SPOT_NAMES[arg] then
             db.raidSpot = arg
