@@ -3,3 +3,7 @@ package-as: KuiNameplates
 ignore:
   - .github
   - .pkgmeta
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown

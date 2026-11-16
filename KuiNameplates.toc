@@ -4,6 +4,7 @@
 ## Author: mjared123
 ## Version: @project-version@
 ## X-License: All Rights Reserved
+## X-Curse-Project-ID: 1799930
 ## SavedVariables: KuiNameplatesForeverDB
 
 Core.lua
