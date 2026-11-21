@@ -31,7 +31,7 @@ Copy the `KuiNameplates` folder into `World of Warcraft/_forever_/Interface/AddO
 - Borders coloured by type (magic, curse, disease, poison, bleed)
 
 **Experimental (off by default)**
-- DoT damage prediction: a green section at the end of the health bar shows the damage your DoTs and bleeds will still do, and a red skull beside the bar means they are enough to kill. Turn it on in the Experimental tab or with `/kui dots`. It is an estimate read from spell tooltips (English client), so misses, resists, immunities and crits are not counted.
+- DoT damage prediction: a green section at the end of the health bar shows the damage your DoTs and bleeds will still do, and a red skull beside the bar means they are enough to kill. Turn it on in the Experimental tab or with `/kui dots`. A DoT only counts once the game shows your debuff is on the enemy, so immunities and misses drop out; a "?" on the damage number means the game would not confirm it. Damage is read from spell tooltips (English client), so crits are not counted. `/kui dotprobe` prints what the addon can see.
 
 **Range and performance**
 - Max nameplate distance setting for Forever's longer ranges

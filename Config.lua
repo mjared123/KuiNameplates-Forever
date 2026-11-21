@@ -68,6 +68,7 @@ local function Help()
     print("  /kui casttextoffset <n>  - move the spell name up or down")
     print("  /kui auratext <n>  - aura timer and stack text size")
     print("  /kui class|tank|level|hp|cast|debuffs|buffs|arrows|friendly|hpname|colors|minimap|titles|dots|combo|tot  - toggle features")
+    print("  /kui dotprobe  - show what DoT prediction can see on your target")
     print("  /kui reset  - restore defaults")
 end
 
@@ -91,6 +92,8 @@ local function Handle(msg)
         else
             ns.Print("max nameplate distance: " .. tostring(GetCVar("nameplateMaxDistance")))
         end
+    elseif cmd == "dotprobe" then
+        ns:DotProbe()
     elseif cmd == "test" then
         ns:SetTestMode(not ns.testMode)
         ns.Print("test mode " .. OnOff(ns.testMode))

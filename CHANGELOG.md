@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.0
+- DoT prediction (experimental) reworked. A cast no longer counts on its own: a DoT is added only once the game shows your debuff is really on the enemy. Immune targets (Serpent Sting on a water elemental), misses, resists and dodges no longer show damage, and DoTs that are dispelled or wear off early drop out.
+- Every DoT on a target now adds to the total, and a green number on the bar shows the damage left, so you can see it recalculate as you add more.
+- Where the game won't confirm a debuff during combat, the DoT is still shown as a guess, marked with a "?" after the number.
+- New `/kui dotprobe` command: prints what the game lets the addon see on your target (your debuffs, hidden values, and your last few casts), to help track down problems.
+
 ## v0.7.2
 - Fixed: the big crowd control icon on enemy players could jump far out to the right of the bar when the stun or root landed. The game resizes that icon without telling the addon; it is now placed again each time.
 - Crowd control icons right of the bar no longer leave the extra space the left side needs for the cast icon, so they sit closer to the bar.

@@ -106,7 +106,7 @@ local function Pages()
               { "check", "dotPrediction", "DoT damage prediction (test)" },
             } },
           { { title = "About DoT prediction",
-              { "note", "A green section at the end of the health bar shows the damage your DoTs and bleeds will still do. A skull beside the bar means they are enough to kill. It is an estimate from the spell tooltips: misses, resists, immunities and crits are not counted. English client only." },
+              { "note", "A green section at the end of the health bar, and a number, show the damage your DoTs and bleeds will still do. A skull beside the bar means they are enough to kill. A DoT counts once the game shows your debuff is on the enemy, so immunities and misses drop out. A question mark after the number means the game would not confirm one of them. Damage comes from spell tooltips, so crits are not counted. English client only. /kui dotprobe shows what the addon can see." },
             } },
         },
     }
