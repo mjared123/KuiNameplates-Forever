@@ -56,14 +56,17 @@ end
 
 -- Read "X damage over Y sec" from a description. Finishing moves list one
 -- line per combo point ("3 points: 120 damage over 14 sec"); the line for
--- the points spent is used.
+-- the points spent is used. When the game hides how many points were spent,
+-- the top line is used, since finishers are mostly used at full points.
 local function ParseDescription(desc, points)
     if type(desc) ~= "string" or desc == "" then return nil end
-    if points and points > 0 then
-        for cp, dmg, dur in desc:gmatch("(%d) points?%s*:%s*([%d,]+)[^%d]-damage over ([%d%.]+) sec") do
-            if tonumber(cp) == points then return Number(dmg), tonumber(dur) end
-        end
+    local best, bestDmg, bestDur
+    for cp, dmg, dur in desc:gmatch("(%d) points?%s*:%s*([%d,]+)[^%d]-damage over ([%d%.]+) sec") do
+        cp = tonumber(cp)
+        if points and cp == points then return Number(dmg), tonumber(dur) end
+        if not best or cp > best then best, bestDmg, bestDur = cp, dmg, dur end
     end
+    if best then return Number(bestDmg), tonumber(bestDur) end
     local dmg, dur = desc:match("([%d,]+)[%a%s]-damage over ([%d%.]+) sec")
     if dmg then return Number(dmg), tonumber(dur) end
     -- Some text ranges the amount: "12 to 16 damage over 9 sec".
@@ -84,11 +87,21 @@ local function SpellName(spellID)
     end
 end
 
+-- Spell text can come back empty until the game has loaded that spell's
+-- data, often on the first cast after logging in. Ask for it to load, and
+-- keep every description once seen.
+local descriptions = {}
 local function SpellDescription(spellID)
+    if descriptions[spellID] then return descriptions[spellID] end
     local get = (C_Spell and C_Spell.GetSpellDescription) or GetSpellDescription
     if not get then return nil end
     local ok, desc = pcall(get, spellID)
-    if ok then return Plain(desc) end
+    desc = ok and Plain(desc) or nil
+    if type(desc) == "string" and desc ~= "" then
+        descriptions[spellID] = desc
+        return desc
+    end
+    if C_Spell and C_Spell.RequestLoadSpellData then pcall(C_Spell.RequestLoadSpellData, spellID) end
 end
 
 local function ComboPoints()
@@ -210,9 +223,22 @@ end
 -- Tracking -------------------------------------------------------------------
 
 local tracked = {} -- plate -> true while it has DoTs on it
+-- DoTs by unit GUID, when the game shows it, so they come back if the
+-- unit's plate leaves the screen for a moment (out of sight, camera turned).
+local byGuid = {}
+
+local function Guid(unit)
+    local ok, guid = pcall(UnitGUID, unit)
+    return ok and Plain(guid) or nil
+end
 
 local function DamageLeft(plate, now)
     local total, dots = 0, plate.dots
+    if not dots and plate.unit then
+        local guid = Guid(plate.unit)
+        dots = guid and byGuid[guid]
+        plate.dots, plate.dotGuid = dots, dots and guid
+    end
     if not dots then return 0 end
     for name, dot in pairs(dots) do
         local left = dot.ends - now
@@ -222,7 +248,10 @@ local function DamageLeft(plate, now)
             total = total + dot.damage * left / dot.duration
         end
     end
-    if next(dots) == nil then plate.dots = nil end
+    if next(dots) == nil then
+        if plate.dotGuid then byGuid[plate.dotGuid] = nil end
+        plate.dots, plate.dotGuid = nil, nil
+    end
     return total
 end
 
@@ -240,16 +269,24 @@ function ns.UpdateDots(plate)
         return
     end
     DrawDots(plate, damage, UnitHealth(unit), UnitHealthMax(unit))
+    -- Keep counting down, also for DoTs brought back by GUID.
+    if not tracked[plate] then
+        tracked[plate] = true
+        if ns.dotTicker then ns.dotTicker:Show() end
+    end
 end
 
+-- The plate is going away or being reused: let go of its DoTs. Those saved
+-- by GUID stay until they run out.
 function ns.ClearDots(plate)
-    plate.dots = nil
+    plate.dots, plate.dotGuid = nil, nil
     tracked[plate] = nil
     HideDots(plate)
 end
 
 local ticker = CreateFrame("Frame")
 ticker:Hide()
+ns.dotTicker = ticker
 local elapsed = 0
 ticker:SetScript("OnUpdate", function(self, dt)
     elapsed = elapsed + dt
@@ -263,9 +300,16 @@ local lastPoints -- combo points just before the latest cast
 
 -- Put `damage` over `duration` on a plate under `key`, replacing an earlier
 -- one with the same key (recasting a DoT restarts it).
-local function AddDot(plate, key, damage, duration)
-    plate.dots = plate.dots or {}
-    plate.dots[key] = { damage = damage, duration = duration, ends = GetTime() + duration }
+local function AddDot(plate, key, damage, duration, castAt)
+    if not plate.dots then
+        local guid = Guid(plate.unit)
+        plate.dots = guid and byGuid[guid] or {}
+        if guid then
+            byGuid[guid] = plate.dots
+            plate.dotGuid = guid
+        end
+    end
+    plate.dots[key] = { damage = damage, duration = duration, ends = (castAt or GetTime()) + duration }
     tracked[plate] = true
     ticker:Show()
     ns.Try(ns.UpdateDots, plate)
@@ -349,12 +393,22 @@ watcher:SetScript("OnEvent", function(_, event, _, _, spellID)
     if not (name and DOTS[name]) then return end
     local points = lastPoints
     lastPoints = nil
-    local damage, duration = ParseDescription(SpellDescription(spellID), points)
-    if not (damage and duration and damage > 0 and duration > 0) then return end
     local nameplate = UnitExists("target") and C_NamePlate.GetNamePlateForUnit("target")
     local plate = nameplate and nameplate.KuiForeverPlate
     if not (plate and plate.unit) then return end
-    AddDot(plate, name, damage, duration)
+    local unit, castAt, tries = plate.unit, GetTime(), 0
+    local function Apply()
+        if plate.unit ~= unit then return end -- the plate moved on to another unit
+        local damage, duration = ParseDescription(SpellDescription(spellID), points)
+        if damage and duration and damage > 0 and duration > 0 then
+            AddDot(plate, name, damage, duration, castAt)
+        elseif tries < 3 and C_Timer and C_Timer.After then
+            -- The spell text may still be loading; try again shortly.
+            tries = tries + 1
+            C_Timer.After(0.3, Apply)
+        end
+    end
+    Apply()
 end)
 
 -- Listen for your own casts only while the option is on.

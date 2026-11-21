@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.7.2
+- Fixed: the big crowd control icon on enemy players could jump far out to the right of the bar when the stun or root landed. The game resizes that icon without telling the addon; it is now placed again each time.
+- Crowd control icons right of the bar no longer leave the extra space the left side needs for the cast icon, so they sit closer to the bar.
+- DoT prediction (experimental) no longer randomly misses DoTs:
+  - The first cast of a spell after logging in could be skipped while the game was still loading the spell's tooltip. It now waits for the tooltip and tries again.
+  - DoTs come back when an enemy's plate leaves the screen for a moment and returns.
+  - Rip and Rupture used to be skipped when the game hid how many combo points you spent. They now count as full combo points in that case.
+
 ## v0.7.1
 - DoT prediction (experimental) now counts hunter Immolation Trap and Explosive Trap. A trap isn't cast on your target, so the damage is added to whichever enemy gets the trap's burn. Explosive Trap counts every enemy it catches. If the game won't tell the addon which enemy was caught, a chat message says so once and traps are left out.
 

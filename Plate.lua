@@ -921,12 +921,12 @@ function Plate:PlaceRaidIcon()
         elseif db.castBars and db.castStyle ~= "icon" then
             x = db.height + db.castHeight + 9
         end
-        if db.targetArrows then x = ns.ArrowRoom() end
+        if db.targetArrows then x = ns.ArrowRoom("left") end
         icon:SetPoint("RIGHT", self.health, "LEFT", -x, 0)
     elseif spot == "right" and auraSpot ~= "right" then
         -- Past the DoT prediction skull when that is on.
         local x = db.dotPrediction and 20 or 4 -- that skull is 12 wide
-        if db.targetArrows then x = ns.ArrowRoom() end
+        if db.targetArrows then x = ns.ArrowRoom("right") end
         icon:SetPoint("LEFT", self.health, "RIGHT", x, 0)
     elseif (self.debuffHeight or 0) > 0 then
         -- Just above the highest debuff row, with room for its timer text.
@@ -964,9 +964,18 @@ local function ArrowGap(casting)
     return gap
 end
 
--- Room that things beside the bar leave for the arrows, in plate units.
-function ns.ArrowRoom()
-    if not ns.db.targetArrows then return 0 end
+-- Room that things beside the bar on `side` ("left" or "right") leave for
+-- the arrows, in plate units. Only the left arrow steps out past a cast
+-- icon, so the right side needs much less room. The right side also keeps
+-- clear of the DoT prediction skull.
+function ns.ArrowRoom(side)
+    local db = ns.db
+    if side == "right" then
+        local skull = db.dotPrediction and (4 + 12 + 4) or 0
+        if not db.targetArrows then return skull end
+        return math.max(ArrowGap(false) + ArrowSize() + 2, skull)
+    end
+    if not db.targetArrows then return 0 end
     return ArrowGap(true) + ArrowSize() + 2
 end
 
@@ -1336,7 +1345,8 @@ local function LayoutIcons(plate, items, spot, auraScale, stack)
     if k <= 0 then k = auraScale end
     local w, step = GAME_ICON_SIZE, GAME_ICON_SIZE + ICON_GAP
     local offset = ((db.auraOffset or 0) + (stack or 0)) / k
-    local room = ns.ArrowRoom() / k -- beside the bar, clear of the target arrows
+    -- Beside the bar, clear of the target arrows.
+    local room = ns.ArrowRoom(spot == "left" and "left" or "right") / k
     local across = (spot == "left" or spot == "right") and 3
         or math.max(1, math.floor((db.width / k + ICON_GAP) / step))
 
@@ -1489,7 +1499,7 @@ local function ArrangeAuras(auras)
     if control then
         local scale = Plain(control:GetScale()) or 1
         if scale <= 0 then scale = 1 end
-        local room = math.max(5, ns.ArrowRoom())
+        local room = math.max(5, ns.ArrowRoom(side))
         local gap = (room / auraScale + math.min(#others, 3) * (GAME_ICON_SIZE + ICON_GAP)) / scale
         control:ClearAllPoints()
         if side == "right" then
@@ -1529,6 +1539,17 @@ function Plate:AttachAuras()
         hooksecurefunc(auras, "RefreshAuras", function(a)
             Try(ArrangeAuras, a)
         end)
+        -- When crowd control lands, the game rescales its big crowd control
+        -- icon without refilling the rows. Our offset for that icon is
+        -- measured in its own scale, so it must be placed again, or it ends
+        -- up far out to the side.
+        for _, method in ipairs({ "RefreshLossOfControl", "UpdateAuraScale" }) do
+            if auras[method] then
+                hooksecurefunc(auras, method, function(a)
+                    Try(ArrangeAuras, a)
+                end)
+            end
+        end
     end
     auraOwners[frame] = self
     auraPlates[auras] = self
