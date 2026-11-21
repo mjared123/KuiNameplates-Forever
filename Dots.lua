@@ -32,6 +32,17 @@ local DOTS = {
 }
 ns.DOT_SPELLS = DOTS
 
+-- Hunter traps. The trap is placed on the ground, not cast on a target, and
+-- burns whichever enemy walks into it, so the damage can't be put on your
+-- target when you cast. Instead the trap waits until an enemy nameplate gets
+-- the trap's effect debuff (named here), and the damage goes on that plate.
+local TRAPS = {
+    ["Immolation Trap"] = { effect = "Immolation Trap Effect" },
+    ["Explosive Trap"] = { effect = "Explosive Trap Effect", aoe = true },
+}
+local TRAP_LIFETIME = 60 -- an armed trap lasts a minute unless the tooltip says otherwise
+local AOE_WINDOW = 1     -- an area trap counts every enemy it catches in this long
+
 local issecret = issecretvalue or function() return false end
 local canaccess = canaccessvalue or function() return true end
 local function Plain(value)
@@ -250,6 +261,77 @@ end)
 
 local lastPoints -- combo points just before the latest cast
 
+-- Put `damage` over `duration` on a plate under `key`, replacing an earlier
+-- one with the same key (recasting a DoT restarts it).
+local function AddDot(plate, key, damage, duration)
+    plate.dots = plate.dots or {}
+    plate.dots[key] = { damage = damage, duration = duration, ends = GetTime() + duration }
+    tracked[plate] = true
+    ticker:Show()
+    ns.Try(ns.UpdateDots, plate)
+end
+
+-- Traps -------------------------------------------------------------------------
+
+local pending = {} -- effect name -> { damage, duration, expires, aoe }
+local trapWatcher = CreateFrame("Frame")
+local warned
+
+-- True or false when the game says whether `unit` has your debuff `name`, nil
+-- when it won't say. The answer may be hidden, but checking it against nil is
+-- allowed.
+local function HasMyDebuff(unit, name)
+    local get = C_UnitAuras and C_UnitAuras.GetAuraDataBySpellName
+    if not get then return nil end
+    local ok, aura = pcall(get, unit, name, "HARMFUL|PLAYER")
+    if not ok then return nil end
+    return aura ~= nil
+end
+
+local function StopTrapWatch()
+    if next(pending) == nil then trapWatcher:UnregisterEvent("UNIT_AURA") end
+end
+
+trapWatcher:SetScript("OnEvent", function(_, _, unit)
+    local plate = unit and ns.plates[unit]
+    if not (plate and plate.unit) then return end
+    local now = GetTime()
+    for effect, trap in pairs(pending) do
+        if now > trap.expires then
+            pending[effect] = nil
+        else
+            local has = HasMyDebuff(unit, effect)
+            if has == nil and not warned then
+                warned = true
+                ns.Print("DoT prediction: the game won't say which enemy your trap caught, so trap damage can't be shown.")
+            end
+            if has and not (plate.dots and plate.dots[effect] and plate.dots[effect].trapAt == trap.placed) then
+                AddDot(plate, effect, trap.damage, trap.duration)
+                plate.dots[effect].trapAt = trap.placed
+                if trap.aoe then
+                    trap.expires = math.min(trap.expires, now + AOE_WINDOW)
+                else
+                    pending[effect] = nil
+                end
+            end
+        end
+    end
+    StopTrapWatch()
+end)
+
+local function ArmTrap(trap, spellID)
+    local desc = SpellDescription(spellID)
+    local damage, duration = ParseDescription(desc)
+    if not (damage and duration and damage > 0 and duration > 0) then return end
+    local minutes = type(desc) == "string" and tonumber(desc:match("exist for ([%d%.]+) min"))
+    local now = GetTime()
+    pending[trap.effect] = {
+        damage = damage, duration = duration, aoe = trap.aoe, placed = now,
+        expires = now + (minutes and minutes * 60 or TRAP_LIFETIME),
+    }
+    trapWatcher:RegisterEvent("UNIT_AURA")
+end
+
 local watcher = CreateFrame("Frame")
 watcher:SetScript("OnEvent", function(_, event, _, _, spellID)
     if event == "UNIT_SPELLCAST_SENT" then
@@ -260,6 +342,10 @@ watcher:SetScript("OnEvent", function(_, event, _, _, spellID)
     spellID = Plain(spellID)
     if not spellID then return end
     local name = SpellName(spellID)
+    if name and TRAPS[name] then
+        ArmTrap(TRAPS[name], spellID)
+        return
+    end
     if not (name and DOTS[name]) then return end
     local points = lastPoints
     lastPoints = nil
@@ -268,12 +354,7 @@ watcher:SetScript("OnEvent", function(_, event, _, _, spellID)
     local nameplate = UnitExists("target") and C_NamePlate.GetNamePlateForUnit("target")
     local plate = nameplate and nameplate.KuiForeverPlate
     if not (plate and plate.unit) then return end
-    plate.dots = plate.dots or {}
-    -- Recasting a DoT restarts it, so the new cast replaces the old one.
-    plate.dots[name] = { damage = damage, duration = duration, ends = GetTime() + duration }
-    tracked[plate] = true
-    ticker:Show()
-    ns.Try(ns.UpdateDots, plate)
+    AddDot(plate, name, damage, duration)
 end)
 
 -- Listen for your own casts only while the option is on.
@@ -283,6 +364,8 @@ function ns:ApplyDotPrediction()
         pcall(watcher.RegisterUnitEvent, watcher, "UNIT_SPELLCAST_SUCCEEDED", "player")
     else
         watcher:UnregisterAllEvents()
+        wipe(pending)
+        trapWatcher:UnregisterAllEvents()
         for plate in pairs(tracked) do ns.ClearDots(plate) end
     end
 end
