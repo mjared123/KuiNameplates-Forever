@@ -25,9 +25,15 @@ ns.defaults = {
     healthText = true,    -- show health percent when damaged
     showLevel = false,
     tankMode = false,     -- colour bars by whether you hold threat
+    tankOkR = 0.16, tankOkG = 0.36, tankOkB = 0.66,    -- tank mode: you hold threat
+    tankBadR = 0.72, tankBadG = 0.32, tankBadB = 0.06, -- tank mode: slipping, or not on you
+    casterColors = false, -- colour enemy NPCs that use mana
+    casterR = 0.14, casterG = 0.36, casterB = 0.80,    -- that colour (blue)
     castBars = true,
     castHeight = 4,
     castStyle = "thin",   -- thin, tall or icon
+    castR = 0.62, castG = 0.62, castB = 0.78,          -- casts you can interrupt (pale grey-lilac)
+    castLockR = 0.62, castLockG = 0.44, castLockB = 0.30, -- casts you can't (dull orange)
     thinCast = true,      -- marks saved settings as already moved to the thin cast bar
     auras = true,         -- your debuffs on enemies
     auraWidth = 20,       -- debuff icon size
@@ -36,6 +42,10 @@ ns.defaults = {
     raidSpot = "top",     -- raid mark: top (above name and debuffs), left or right of the bar
     raidSize = 22,        -- raid mark size
     targetArrows = true,  -- arrows either side of your target's bar
+    arrowScale = 1,       -- arrow size, as a multiple of the usual size
+    arrowX = 0,           -- extra distance of the arrows from the bar
+    arrowY = 0,           -- arrows moved up (+) or down (-)
+    arrowR = 0.30, arrowG = 0.70, arrowB = 1.00, -- arrow colour (target blue)
     comboPoints = true,   -- combo point pips on your target's plate
     targetName = false,   -- each enemy's target named under its bar
     castTextOffset = 0,   -- spell name moved up (+) or down (-)

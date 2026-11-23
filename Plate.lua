@@ -23,8 +23,6 @@ local COLOR_NEUTRAL  = { 0.66, 0.54, 0.08 }
 local COLOR_FRIENDLY = { 0.16, 0.46, 0.10 }
 local COLOR_PLAYER   = { 0.14, 0.34, 0.62 } -- friendly players without class colours
 local COLOR_TAPPED   = { 0.40, 0.40, 0.40 }
-local COLOR_TANK_OK  = { 0.16, 0.36, 0.66 } -- tank mode: you hold threat
-local COLOR_TANK_BAD = { 0.72, 0.32, 0.06 } -- tank mode: threat slipping
 local CLASS_DIM = 0.72 -- class colours are toned down to sit with the rest
 
 local GLOW_TARGET = { 0.30, 0.70, 1.00, 1 }
@@ -37,9 +35,6 @@ local NAME_FRIENDLY = { 0.64, 0.97, 0.66 } -- pale mint
 local NAME_NEUTRAL  = { 1.00, 0.90, 0.45 }
 local NAME_PLAYER   = { 0.66, 0.68, 1.00 } -- lilac
 
-local COLOR_CAST        = { 0.62, 0.62, 0.78 } -- pale grey-lilac
-local COLOR_CHANNEL     = { 0.62, 0.62, 0.78 }
-local COLOR_UNINTERRUPT = { 0.62, 0.44, 0.30 } -- dull orange: can't be interrupted
 local COLOR_INTERRUPTED = { 0.80, 0.20, 0.16 }
 
 -- Unit events each plate listens to, registered only for its own unit.
@@ -51,13 +46,15 @@ local UNIT_EVENTS = {
     "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
     "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_DELAYED",
     "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE", "UNIT_SPELLCAST_CHANNEL_STOP",
-    "UNIT_TARGET",
+    "UNIT_SPELLCAST_INTERRUPTIBLE", "UNIT_SPELLCAST_NOT_INTERRUPTIBLE",
+    "UNIT_TARGET", "UNIT_DISPLAYPOWER", "UNIT_MAXPOWER",
 }
 
 local CAST_EVENTS = {
     UNIT_SPELLCAST_START = true, UNIT_SPELLCAST_STOP = true, UNIT_SPELLCAST_FAILED = true,
     UNIT_SPELLCAST_DELAYED = true, UNIT_SPELLCAST_CHANNEL_START = true,
     UNIT_SPELLCAST_CHANNEL_UPDATE = true, UNIT_SPELLCAST_CHANNEL_STOP = true,
+    UNIT_SPELLCAST_INTERRUPTIBLE = true, UNIT_SPELLCAST_NOT_INTERRUPTIBLE = true,
 }
 
 local CLASSIFICATION_SUFFIX = { elite = "+", rare = "r", rareelite = "r+", worldboss = "b" }
@@ -95,6 +92,30 @@ local function Try(func, ...)
 end
 ns.Try = Try
 ns.Plain = Plain
+
+-- A colour the player picked in the settings, such as "arrow" or "caster".
+local function PickedColor(prefix)
+    local db = ns.db
+    return { db[prefix .. "R"], db[prefix .. "G"], db[prefix .. "B"] }
+end
+
+-- A unit's class colour as r, g, b, plus true when those are hidden values.
+-- In battlegrounds the game can hide which class an enemy is. The hidden
+-- class can still be handed back to the game for its colour, which widgets
+-- accept. Returns nil when there is no class colour to use.
+local function ClassColor(unit)
+    local class = select(2, UnitClass(unit))
+    if class == nil then return nil end -- nil checks are allowed on hidden values
+    if IsSecret(class) then
+        local ok, r, g, b = pcall(function()
+            return C_ClassColor.GetClassColor(class):GetRGB()
+        end)
+        if ok and r ~= nil then return r, g, b, true end
+        return nil
+    end
+    local cc = RAID_CLASS_COLORS[class]
+    if cc then return cc.r, cc.g, cc.b, false end
+end
 
 -- Building a plate -----------------------------------------------------------
 
@@ -331,7 +352,6 @@ function ns:CreatePlate(nameplate)
         local arrow = text:CreateTexture(nil, "OVERLAY", nil, -1)
         arrow:SetTexture(ARROW)
         if side == "right" then arrow:SetTexCoord(1, 0, 0, 1) end -- mirrored
-        arrow:SetVertexColor(GLOW_TARGET[1], GLOW_TARGET[2], GLOW_TARGET[3], 1)
         arrow:Hide()
         plate.arrows[side] = arrow
     end
@@ -440,11 +460,24 @@ end
 
 -- Colour the cast bar. Over the icon it is a light see-through wash instead.
 local function SetCastColor(cast, color)
-    if cast.style == "icon" then
-        cast:SetStatusBarColor(color[1], color[2], color[3], 0.4)
-    else
-        cast:SetStatusBarColor(color[1], color[2], color[3], 1)
+    cast:SetStatusBarColor(color[1], color[2], color[3], cast.style == "icon" and 0.4 or 1)
+end
+
+-- Colour the cast bar by whether the cast can be interrupted. In combat the
+-- game may hide the answer; it then picks between the two colours itself.
+local function SetInterruptColor(cast, notInterruptible)
+    local open, locked = PickedColor("cast"), PickedColor("castLock")
+    if not IsSecret(notInterruptible) then
+        SetCastColor(cast, notInterruptible and locked or open)
+        return
     end
+    SetCastColor(cast, open)
+    local alpha = cast.style == "icon" and 0.4 or 1
+    pcall(function()
+        cast:GetStatusBarTexture():SetVertexColorFromBoolean(notInterruptible,
+            CreateColor(locked[1], locked[2], locked[3], alpha),
+            CreateColor(open[1], open[2], open[3], alpha))
+    end)
 end
 
 -- The name overlaps the top edge of the bar. With no bar it takes the bar's place.
@@ -811,10 +844,9 @@ function Plate:UpdateMode()
     end
     local color
     if Plain(UnitIsPlayer(unit)) then
-        local class = Plain(select(2, UnitClass(unit)))
-        local cc = class and RAID_CLASS_COLORS[class]
-        if cc then
-            self:SetNameColor(cc.r, cc.g, cc.b)
+        local r, g, b = ClassColor(unit)
+        if r ~= nil then
+            self:SetNameColor(r, g, b)
             return
         end
         color = NAME_PLAYER
@@ -825,24 +857,61 @@ function Plate:UpdateMode()
     self:SetNameColor(color[1], color[2], color[3])
 end
 
+-- Power type 0 is mana.
+local MANA = Enum and Enum.PowerType and Enum.PowerType.Mana or 0
+
+-- True for NPCs that use mana: mages, priests, shamans and other casters.
+-- Player pets (an imp, say) don't count. The class the game gives an NPC can
+-- be hidden, and so can the size of its mana pool, but its power type isn't.
+local function IsCaster(unit)
+    if Plain(UnitPlayerControlled(unit)) then return false end
+    local class = Plain((select(2, UnitClass(unit))))
+    if class == "WARRIOR" or class == "ROGUE" then return false end
+    local power = Plain((UnitPowerType(unit)))
+    if power == nil then return class == "MAGE" or class == "PALADIN" end
+    if power ~= MANA then return false end
+    local pool = Plain(UnitPowerMax(unit, MANA))
+    return pool == nil or pool > 0
+end
+
+-- Colour the bar with values the game may be hiding. They can't be toned
+-- down with maths, so a dark overlay does it.
+function Plate:SetHiddenBarColor(dim, r, g, b)
+    local health = self.health
+    health:SetStatusBarColor(r, g, b)
+    health.dim:SetVertexColor(0, 0, 0, dim)
+    health.dim:Show()
+    health.fill:SetVertexColor(0.05, 0.03, 0.03, 0.9)
+end
+
+-- Colour the bar, with the empty part a very dark shade of the same colour.
+function Plate:SetBarColor(color)
+    local health = self.health
+    health.dim:Hide()
+    health:SetStatusBarColor(color[1], color[2], color[3])
+    health.fill:SetVertexColor(color[1] * 0.22, color[2] * 0.22, color[3] * 0.22, 0.9)
+end
+
 function Plate:UpdateColor()
     local unit, db = self.unit, ns.db
     self:UpdateMode()
     local threat = ThreatStatus(unit)
     self.threat = threat
     local color
-    self.health.dim:Hide()
 
     if db.tankMode and threat then
-        color = (threat == 3) and COLOR_TANK_OK or COLOR_TANK_BAD
+        color = PickedColor(threat == 3 and "tankOk" or "tankBad")
     elseif Plain(UnitIsPlayer(unit)) then
-        local canAttack = Plain(UnitCanAttack("player", unit))
-        local class = Plain(select(2, UnitClass(unit)))
-        local cc = class and RAID_CLASS_COLORS[class]
-        if canAttack and db.classColors and cc then
-            color = { cc.r * CLASS_DIM, cc.g * CLASS_DIM, cc.b * CLASS_DIM }
-        elseif canAttack then
+        if Plain(UnitCanAttack("player", unit)) then
             color = COLOR_HOSTILE
+            if db.classColors then
+                local r, g, b, hidden = ClassColor(unit)
+                if hidden then
+                    if pcall(self.SetHiddenBarColor, self, 1 - CLASS_DIM, r, g, b) then color = nil end
+                elseif r then
+                    color = { r * CLASS_DIM, g * CLASS_DIM, b * CLASS_DIM }
+                end
+            end
         else
             color = COLOR_PLAYER
         end
@@ -851,25 +920,23 @@ function Plate:UpdateColor()
     else
         local reaction = Plain(UnitReaction(unit, "player"))
         if reaction then
-            if reaction <= 3 then color = COLOR_HOSTILE
+            if reaction <= 3 then
+                color = COLOR_HOSTILE
+                if db.casterColors then
+                    local ok, caster = pcall(IsCaster, unit)
+                    if ok and caster then color = PickedColor("caster") end
+                end
             elseif reaction == 4 then color = COLOR_NEUTRAL
             else color = COLOR_FRIENDLY end
         elseif UnitSelectionColor then
             -- Reaction hidden: let the game pick the colour; widgets accept secrets.
-            -- It can't be toned down with maths, so a dark overlay does it.
-            self.health:SetStatusBarColor(UnitSelectionColor(unit))
-            self.health.dim:Show()
-            self.health.fill:SetVertexColor(0.05, 0.03, 0.03, 0.9)
+            self:SetHiddenBarColor(0.4, UnitSelectionColor(unit))
         else
             color = COLOR_HOSTILE
         end
     end
 
-    if color then
-        self.health:SetStatusBarColor(color[1], color[2], color[3])
-        -- The empty part of the bar is a very dark shade of the same colour.
-        self.health.fill:SetVertexColor(color[1] * 0.22, color[2] * 0.22, color[3] * 0.22, 0.9)
-    end
+    if color then self:SetBarColor(color) end
     self:UpdateGlow()
 end
 
@@ -946,10 +1013,11 @@ end
 -- the bar keeps ArrowRoom() free, so it never sits under an arrow.
 
 local function ArrowSize()
-    return ns.db.height + 8
+    return (ns.db.height + 8) * (ns.db.arrowScale or 1)
 end
 
--- Distance from the bar's edge to the arrow's box.
+-- Distance from the bar's edge to the arrow's box. Negative when the arrows
+-- are moved in over the bar.
 local function ArrowGap(casting)
     local db = ns.db
     local gap = 2
@@ -961,7 +1029,7 @@ local function ArrowGap(casting)
         gap = db.height + db.castHeight + 3 + 3 + 3
     end
     if db.dotPrediction then gap = math.max(gap, 4 + 12 + 2) end -- the skull is 12 wide
-    return gap
+    return gap + (db.arrowX or 0)
 end
 
 -- Room that things beside the bar on `side` ("left" or "right") leave for
@@ -973,10 +1041,11 @@ function ns.ArrowRoom(side)
     if side == "right" then
         local skull = db.dotPrediction and (4 + 12 + 4) or 0
         if not db.targetArrows then return skull end
-        return math.max(ArrowGap(false) + ArrowSize() + 2, skull)
+        return math.max(ArrowGap(false) + ArrowSize() + 2, skull, 4)
     end
     if not db.targetArrows then return 0 end
-    return ArrowGap(true) + ArrowSize() + 2
+    -- Arrows moved in over the bar still leave the cast icon its room.
+    return math.max(ArrowGap(true) + ArrowSize() + 2, ArrowGap(true) - (db.arrowX or 0))
 end
 
 function Plate:PlaceArrows()
@@ -988,8 +1057,11 @@ function Plate:PlaceArrows()
     right:SetSize(size, size)
     left:ClearAllPoints()
     right:ClearAllPoints()
-    left:SetPoint("RIGHT", self.health, "LEFT", -leftGap, 0)
-    right:SetPoint("LEFT", self.health, "RIGHT", rightGap, 0)
+    local y, color = ns.db.arrowY or 0, PickedColor("arrow")
+    left:SetVertexColor(color[1], color[2], color[3], 1)
+    right:SetVertexColor(color[1], color[2], color[3], 1)
+    left:SetPoint("RIGHT", self.health, "LEFT", -leftGap, y)
+    right:SetPoint("LEFT", self.health, "RIGHT", rightGap, y)
 end
 
 function Plate:ShowArrows(show)
@@ -1044,9 +1116,8 @@ function Plate:UpdateTargetName()
     end
     local color = TOT_OTHER
     if Plain(UnitIsPlayer(tt)) then
-        local class = Plain(select(2, UnitClass(tt)))
-        local cc = class and RAID_CLASS_COLORS[class]
-        if cc then color = { cc.r, cc.g, cc.b } end
+        local r, g, b = ClassColor(tt)
+        if r ~= nil then color = { r, g, b } end
     end
     self:SetTargetName(name, color)
 end
@@ -1143,8 +1214,7 @@ function Plate:UpdateCast()
         end
     end
 
-    local c = (Plain(notInt) == true) and COLOR_UNINTERRUPT or (channel and COLOR_CHANNEL or COLOR_CAST)
-    SetCastColor(cast, c)
+    SetInterruptColor(cast, notInt)
     cast.icon:SetTexture(icon)
     cast.text:SetText(name)
     cast.spark:Show()
@@ -1593,6 +1663,21 @@ local TEST_BUFFS = {
     { icon = "Interface\\Icons\\Spell_Nature_Rejuvenation", dispel = "Magic", time = "9" },
 }
 
+-- Sample bar colour. In tank mode it changes with each cast, showing both
+-- threat colours; otherwise the sample enemy counts as a caster.
+function Plate:TestColor(friendly)
+    local db = ns.db
+    if friendly then
+        self:SetBarColor(COLOR_FRIENDLY)
+    elseif db.tankMode then
+        self:SetBarColor(PickedColor(self.testAlternate and "tankBad" or "tankOk"))
+    elseif db.casterColors then
+        self:SetBarColor(PickedColor("caster"))
+    else
+        self:SetBarColor(COLOR_HOSTILE)
+    end
+end
+
 -- Restart the sample cast from the beginning.
 function Plate:TestCast()
     local cast = self.cast
@@ -1604,9 +1689,10 @@ function Plate:TestCast()
     cast.endTime = cast.startTime + TEST_CAST_TIME
     cast:SetMinMaxValues(0, TEST_CAST_TIME)
     cast:SetValue(0)
-    SetCastColor(cast, COLOR_CAST)
+    -- Every other sample cast can't be interrupted, to show both colours.
+    SetInterruptColor(cast, self.testAlternate or false)
     cast.icon:SetTexture(TEST_CAST_ICON)
-    cast.text:SetText("Holy Light")
+    cast.text:SetText(self.testAlternate and "Can't interrupt" or "Holy Light")
     cast.spark:Show()
     cast.sparkGlow:Show()
     cast:Show()
@@ -1699,12 +1785,9 @@ function Plate:ShowTest(friendly)
     self:SetHealthNameValue(70, 100)
     self:ShowHealthName(self.nameOnly)
 
-    local color = friendly and COLOR_FRIENDLY or COLOR_HOSTILE
-    self.health.dim:Hide()
+    self:TestColor(friendly)
     self.health:SetMinMaxValues(0, 100)
     self.health:SetValue(friendly and 100 or 62)
-    self.health:SetStatusBarColor(color[1], color[2], color[3])
-    self.health.fill:SetVertexColor(color[1] * 0.22, color[2] * 0.22, color[3] * 0.22, 0.9)
     self.healthText:SetAlpha(1)
     self.healthText:SetText((db.healthText and not friendly) and "62%" or "")
     self.level:SetText(db.showLevel and "25" or "")
@@ -1783,7 +1866,10 @@ function ns:SetTestMode(on)
         self:UpdateTestMode()
         if C_Timer and C_Timer.NewTicker then
             testTicker = C_Timer.NewTicker(TEST_CAST_TIME + 0.7, function()
-                ns.Try(testPlates.enemy.TestCast, testPlates.enemy)
+                local enemy = testPlates.enemy
+                enemy.testAlternate = not enemy.testAlternate
+                ns.Try(enemy.TestColor, enemy)
+                ns.Try(enemy.TestCast, enemy)
             end)
         end
     end

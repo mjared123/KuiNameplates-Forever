@@ -12,8 +12,9 @@ Copy the `KuiNameplates` folder into `World of Warcraft/_forever_/Interface/AddO
 - Compact bars sized in screen pixels, the same at any UI scale, with an overall size slider
 - Muted reaction colours, class colours for enemy players
 - Level with elite/rare markers and health percent on the bottom edge of the bar
-- Soft glow: blue on your target, orange or red for threat; optional tank mode bar colours
-- Arrows either side of your target (optional)
+- Soft glow: blue on your target, orange or red for threat; optional tank mode bar colours you can pick
+- Optional bar colour for enemy NPCs that cast spells
+- Arrows either side of your target (optional), with colour, size and position settings
 - Crowd control icons next to the bar, raid target icons
 
 **Friendly plates**
@@ -22,7 +23,8 @@ Copy the `KuiNameplates` folder into `World of Warcraft/_forever_/Interface/AddO
 
 **Cast bars**
 - Three styles: thin, tall with the spell name inside, or icon only
-- Spell icon, leading-edge spark, interrupted flash, uninterruptible colouring
+- Spell icon, leading-edge spark, interrupted flash
+- Your own colours for casts you can and can't interrupt
 
 **Auras**
 - Your debuffs on enemies, in combat too, with the time left on the corner

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.9.0
+- Target arrows: new settings on the General tab for their colour, size, distance from the bar and height. Also `/kui arrowsize`, `/kui arrowdistance` and `/kui arrowheight`.
+- Caster colour: an option on the Enemies tab (or `/kui casters`) to give enemy NPCs that use mana their own bar colour, blue unless you pick another. Off by default. Player pets and neutral NPCs keep their usual colour, and tank mode colours come first.
+- Cast bars: pick the colours of casts you can interrupt and casts you can't, on the Cast bars tab. The colour now also works when the game hides the answer from addons in combat, and changes mid-cast if a cast becomes interruptible or stops being so.
+- Tank mode: pick both colours (you hold threat, threat slipping or not on you) on the Enemies tab.
+- Enemy class colours, for battlegrounds and anywhere else the game hides an enemy's class from addons: the bar now asks the game for the colour of the hidden class instead of turning red.
+- Test mode alternates casts you can and can't interrupt, and shows the caster and tank mode colours when those are on.
+
 ## v0.8.0
 - DoT prediction (experimental) reworked. A cast no longer counts on its own: a DoT is added only once the game shows your debuff is really on the enemy. Immune targets (Serpent Sting on a water elemental), misses, resists and dodges no longer show damage, and DoTs that are dispelled or wear off early drop out.
 - Every DoT on a target now adds to the total, and a green number on the bar shows the damage left, so you can see it recalculate as you add more.

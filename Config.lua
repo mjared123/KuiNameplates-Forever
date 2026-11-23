@@ -21,6 +21,7 @@ local toggles = {
     combo = { key = "comboPoints", label = "Combo points on your target" },
     tot = { key = "targetName", label = "Names of enemies' targets" },
     arrows = { key = "targetArrows", label = "Target arrows" },
+    casters = { key = "casterColors", label = "Colour on enemy caster NPCs" },
     buffs = { key = "buffs", label = "Enemy buff icons" },
 }
 
@@ -36,6 +37,9 @@ local numbers = {
     marksize = { key = "raidSize", min = 12, max = 40 },
     casttextoffset = { key = "castTextOffset", min = -15, max = 15 },
     auratext = { key = "auraTextSize", min = 6, max = 24 },
+    arrowsize = { key = "arrowScale", min = 0.5, max = 3 },
+    arrowdistance = { key = "arrowX", min = -10, max = 40 },
+    arrowheight = { key = "arrowY", min = -20, max = 20 },
 }
 
 function ns:ResetSettings()
@@ -67,7 +71,9 @@ local function Help()
     print("  /kui fontface francois|game|friz|arial|morpheus|skurri  - text font")
     print("  /kui casttextoffset <n>  - move the spell name up or down")
     print("  /kui auratext <n>  - aura timer and stack text size")
-    print("  /kui class|tank|level|hp|cast|debuffs|buffs|arrows|friendly|hpname|colors|minimap|titles|dots|combo|tot  - toggle features")
+    print("  /kui arrowsize <0.5-3>  - target arrow size")
+    print("  /kui arrowdistance|arrowheight <n>  - move the target arrows")
+    print("  /kui class|tank|casters|level|hp|cast|debuffs|buffs|arrows|friendly|hpname|colors|minimap|titles|dots|combo|tot  - toggle features")
     print("  /kui dotprobe  - show what DoT prediction can see on your target")
     print("  /kui reset  - restore defaults")
 end
