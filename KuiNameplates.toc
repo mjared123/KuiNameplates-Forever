@@ -10,6 +10,7 @@
 Core.lua
 Fonts.lua
 Plate.lua
+Filters.lua
 Dots.lua
 Combo.lua
 Config.lua

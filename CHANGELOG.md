@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.10.0
+- Hide buffs and debuffs you don't want to see. The new Filters tab has a list of hidden auras: type a spell name (hides every rank) or a spell ID. Next to it, "Seen on plates" lists every buff and debuff the addon has spotted, newest first, with a tick box to hide each one. Also `/kui hide <name or ID>`, `/kui unhide <name or ID>`, and `/kui hide` on its own to list them.
+- Hidden auras are taken out of the row and the other icons close up. In combat the game may keep the spell from the addon; the icon is then made invisible but can leave a gap in the row until it is next rebuilt.
+- An option to keep hidden auras showing on friendly plates.
+- New `/kui auraprobe` command: lists the buff and debuff icons on your target and what the addon can see about each, to check how hiding works in combat.
+
 ## v0.9.0
 - Target arrows: new settings on the General tab for their colour, size, distance from the bar and height. Also `/kui arrowsize`, `/kui arrowdistance` and `/kui arrowheight`.
 - Caster colour: an option on the Enemies tab (or `/kui casters`) to give enemy NPCs that use mana their own bar colour, blue unless you pick another. Off by default. Player pets and neutral NPCs keep their usual colour, and tank mode colours come first.

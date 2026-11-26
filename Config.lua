@@ -44,10 +44,13 @@ local numbers = {
 
 function ns:ResetSettings()
     local db = self.db
-    local keep = db.maxDistance
+    local keep, seen = db.maxDistance, db.seenAuras
     wipe(db)
     for k, v in pairs(self.defaults) do db[k] = v end
     db.maxDistance = keep -- the game's distance setting isn't reverted automatically
+    db.seenAuras = seen   -- a record, not a setting
+    self:InitAuraFilters()
+    self:AuraFiltersChanged(true)
     self:RefreshAll()
 end
 
@@ -74,7 +77,10 @@ local function Help()
     print("  /kui arrowsize <0.5-3>  - target arrow size")
     print("  /kui arrowdistance|arrowheight <n>  - move the target arrows")
     print("  /kui class|tank|casters|level|hp|cast|debuffs|buffs|arrows|friendly|hpname|colors|minimap|titles|dots|combo|tot  - toggle features")
+    print("  /kui hide <spell name or ID>  - never show that buff or debuff (/kui hide alone lists them)")
+    print("  /kui unhide <spell name or ID>  - show it again")
     print("  /kui dotprobe  - show what DoT prediction can see on your target")
+    print("  /kui auraprobe  - show what the aura filter can see on your target")
     print("  /kui reset  - restore defaults")
 end
 
@@ -100,6 +106,28 @@ local function Handle(msg)
         end
     elseif cmd == "dotprobe" then
         ns:DotProbe()
+    elseif cmd == "auraprobe" then
+        ns:AuraProbe()
+    elseif cmd == "hide" or cmd == "unhide" then
+        -- Use the original capitals for the name shown in the list.
+        local text = select(2, strsplit(" ", msg or "", 2))
+        text = text and strtrim(text) or ""
+        if text == "" then
+            local names = {}
+            for _, row in ipairs(ns:HiddenAuraList()) do names[#names + 1] = row.entry.name end
+            ns.Print("hidden auras: " .. (#names > 0 and table.concat(names, ", ") or "none"))
+        elseif cmd == "hide" then
+            local name, why = ns:HideAura(text)
+            ns.Print(name and ("hiding " .. name) or why)
+        else
+            local key = tonumber(text) or text:lower()
+            if db.hiddenAuras[key] then
+                ns.Print("showing " .. tostring(db.hiddenAuras[key].name) .. " again")
+                ns:ShowAura(key)
+            else
+                ns.Print(text .. " is not on the hidden list")
+            end
+        end
     elseif cmd == "test" then
         ns:SetTestMode(not ns.testMode)
         ns.Print("test mode " .. OnOff(ns.testMode))
