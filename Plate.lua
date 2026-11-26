@@ -224,6 +224,76 @@ local function CastOnUpdate(cast)
     end
 end
 
+-- Elite icon -------------------------------------------------------------------
+--
+-- A small gem on the top left corner of the bar marks elites, rares and
+-- bosses. It is built from squares turned 45 degrees, so it needs no image.
+
+local GEM_GOLD = { 1.00, 0.80, 0.20 }
+local GEMS = {
+    elite     = { light = { 1.00, 0.84, 0.30 }, dark = { 0.62, 0.40, 0.04 } },
+    rare      = { light = { 0.90, 0.94, 1.00 }, dark = { 0.45, 0.50, 0.58 } },
+    rareelite = { light = { 0.90, 0.94, 1.00 }, dark = { 0.45, 0.50, 0.58 }, rim = GEM_GOLD },
+    worldboss = { light = { 1.00, 0.36, 0.26 }, dark = { 0.50, 0.06, 0.04 }, rim = GEM_GOLD },
+}
+ns.GEMS = GEMS
+
+local function CreateGem(parent)
+    local gem = CreateFrame("Frame", nil, parent)
+    local function Piece(sublevel)
+        local t = gem:CreateTexture(nil, "ARTWORK", nil, sublevel)
+        t:SetTexture(SOLID)
+        t:SetPoint("CENTER")
+        if t.SetRotation then t:SetRotation(math.pi / 4) end
+        return t
+    end
+    gem.edge = Piece(0)
+    gem.edge:SetVertexColor(0, 0, 0, 1)
+    gem.rim = Piece(1)
+    gem.fill = Piece(2)
+    gem.shine = Piece(3)
+    gem.shine:SetVertexColor(1, 1, 1, 0.85)
+    gem:Hide()
+    return gem
+end
+
+-- size is the gem's height from point to point.
+local function SizeGem(gem, size)
+    gem:SetSize(size, size)
+    local side = size / math.sqrt(2) -- a turned square is this much taller
+    gem.edge:SetSize(side + 2, side + 2)
+    gem.rim:SetSize(side, side)
+    gem.side = side
+    local shine = math.max(2, side * 0.32)
+    gem.shine:SetSize(shine, shine)
+    gem.shine:ClearAllPoints()
+    gem.shine:SetPoint("CENTER", 0, size * 0.17)
+end
+
+-- Show the gem for a classification ("elite", "rare", ...), or hide it.
+local function SetGem(gem, kind)
+    local look = kind and GEMS[kind]
+    if not look then gem:Hide() return end
+    local side = gem.side or 8
+    if look.rim then
+        gem.rim:SetVertexColor(look.rim[1], look.rim[2], look.rim[3], 1)
+        gem.rim:Show()
+        gem.fill:SetSize(side - 2.5, side - 2.5)
+    else
+        gem.rim:Hide()
+        gem.fill:SetSize(side, side)
+    end
+    local l, d = look.light, look.dark
+    local ok = gem.fill.SetGradient and CreateColor and pcall(gem.fill.SetGradient, gem.fill,
+        "VERTICAL", CreateColor(d[1], d[2], d[3], 1), CreateColor(l[1], l[2], l[3], 1))
+    if ok then
+        gem.fill:SetVertexColor(1, 1, 1, 1)
+    else
+        gem.fill:SetVertexColor(l[1], l[2], l[3], 1)
+    end
+    gem:Show()
+end
+
 function ns:CreatePlate(nameplate)
     local plate = CreateFrame("Frame", nil, nameplate)
     for k, v in pairs(Plate) do plate[k] = v end
@@ -1248,78 +1318,6 @@ function Plate:UpdateColor()
     self:UpdateGlow()
 end
 
--- Show a raid mark index (1 to 8) on the icon. The index may be a secret
--- value, so it goes straight to the texture with no maths or comparisons.
--- Elite icon -------------------------------------------------------------------
---
--- A small gem on the top left corner of the bar marks elites, rares and
--- bosses. It is built from squares turned 45 degrees, so it needs no image.
-
-local GEM_GOLD = { 1.00, 0.80, 0.20 }
-local GEMS = {
-    elite     = { light = { 1.00, 0.84, 0.30 }, dark = { 0.62, 0.40, 0.04 } },
-    rare      = { light = { 0.90, 0.94, 1.00 }, dark = { 0.45, 0.50, 0.58 } },
-    rareelite = { light = { 0.90, 0.94, 1.00 }, dark = { 0.45, 0.50, 0.58 }, rim = GEM_GOLD },
-    worldboss = { light = { 1.00, 0.36, 0.26 }, dark = { 0.50, 0.06, 0.04 }, rim = GEM_GOLD },
-}
-ns.GEMS = GEMS
-
-local function CreateGem(parent)
-    local gem = CreateFrame("Frame", nil, parent)
-    local function Piece(sublevel)
-        local t = gem:CreateTexture(nil, "ARTWORK", nil, sublevel)
-        t:SetTexture(SOLID)
-        t:SetPoint("CENTER")
-        if t.SetRotation then t:SetRotation(math.pi / 4) end
-        return t
-    end
-    gem.edge = Piece(0)
-    gem.edge:SetVertexColor(0, 0, 0, 1)
-    gem.rim = Piece(1)
-    gem.fill = Piece(2)
-    gem.shine = Piece(3)
-    gem.shine:SetVertexColor(1, 1, 1, 0.85)
-    gem:Hide()
-    return gem
-end
-
--- size is the gem's height from point to point.
-local function SizeGem(gem, size)
-    gem:SetSize(size, size)
-    local side = size / math.sqrt(2) -- a turned square is this much taller
-    gem.edge:SetSize(side + 2, side + 2)
-    gem.rim:SetSize(side, side)
-    gem.side = side
-    local shine = math.max(2, side * 0.32)
-    gem.shine:SetSize(shine, shine)
-    gem.shine:ClearAllPoints()
-    gem.shine:SetPoint("CENTER", 0, size * 0.17)
-end
-
--- Show the gem for a classification ("elite", "rare", ...), or hide it.
-local function SetGem(gem, kind)
-    local look = kind and GEMS[kind]
-    if not look then gem:Hide() return end
-    local side = gem.side or 8
-    if look.rim then
-        gem.rim:SetVertexColor(look.rim[1], look.rim[2], look.rim[3], 1)
-        gem.rim:Show()
-        gem.fill:SetSize(side - 2.5, side - 2.5)
-    else
-        gem.rim:Hide()
-        gem.fill:SetSize(side, side)
-    end
-    local l, d = look.light, look.dark
-    local ok = gem.fill.SetGradient and CreateColor and pcall(gem.fill.SetGradient, gem.fill,
-        "VERTICAL", CreateColor(d[1], d[2], d[3], 1), CreateColor(l[1], l[2], l[3], 1))
-    if ok then
-        gem.fill:SetVertexColor(1, 1, 1, 1)
-    else
-        gem.fill:SetVertexColor(l[1], l[2], l[3], 1)
-    end
-    gem:Show()
-end
-
 function Plate:PlaceElite()
     local db = ns.db
     SizeGem(self.elite, db.eliteSize or 12)
@@ -1332,6 +1330,8 @@ function Plate:UpdateElite()
     SetGem(self.elite, kind)
 end
 
+-- Show a raid mark index (1 to 8) on the icon. The index may be a secret
+-- value, so it goes straight to the texture with no maths or comparisons.
 local function SetRaidIcon(icon, index)
     if icon.SetSpriteSheetCell then
         icon:SetSpriteSheetCell(index, 4, 4)
