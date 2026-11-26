@@ -10,6 +10,9 @@ local toggles = {
     tank = { key = "tankMode", label = "Tank mode" },
     level = { key = "showLevel", label = "Level text" },
     hp = { key = "healthText", label = "Health percent" },
+    hpnumber = { key = "healthNumber", label = "Health number" },
+    powernumber = { key = "powerText", label = "Power number" },
+    commas = { key = "numberCommas", label = "Commas in big numbers" },
     cast = { key = "castBars", label = "Cast bars" },
     debuffs = { key = "auras", label = "Debuff icons" },
     friendly = { key = "nameOnly", label = "Name only on friendly units" },
@@ -40,6 +43,15 @@ local numbers = {
     arrowsize = { key = "arrowScale", min = 0.5, max = 3 },
     arrowdistance = { key = "arrowX", min = -10, max = 40 },
     arrowheight = { key = "arrowY", min = -20, max = 20 },
+    healthx = { key = "healthNumberX", min = -100, max = 100 },
+    healthy = { key = "healthNumberY", min = -40, max = 40 },
+    levelx = { key = "levelX", min = -100, max = 100 },
+    levely = { key = "levelY", min = -40, max = 40 },
+    powerx = { key = "powerX", min = -100, max = 100 },
+    powery = { key = "powerY", min = -40, max = 40 },
+    powerheight = { key = "powerHeight", min = 1, max = 12 },
+    powertextx = { key = "powerTextX", min = -100, max = 100 },
+    powertexty = { key = "powerTextY", min = -40, max = 40 },
 }
 
 function ns:ResetSettings()
@@ -73,7 +85,13 @@ local function Help()
     print("  /kui auratext <n>  - aura timer and stack text size")
     print("  /kui arrowsize <0.5-3>  - target arrow size")
     print("  /kui arrowdistance|arrowheight <n>  - move the target arrows")
-    print("  /kui class|tank|casters|level|hp|cast|debuffs|buffs|arrows|friendly|hpname|colors|minimap|titles|dots|combo|tot  - toggle features")
+    print("  /kui healthx|healthy <n>  - move the health number")
+    print("  /kui hpstyle|powerstyle " .. table.concat(ns.NUMBER_STYLES, "|") .. "  - number styles")
+    print("  /kui powertextx|powertexty <n>  - move the power number")
+    print("  /kui levelx|levely <n>  - move the level text")
+    print("  /kui powerbar off|self|target|all  - where the power bar shows")
+    print("  /kui powerx|powery|powerheight <n>  - move or size the power bar")
+    print("  /kui class|tank|casters|level|hp|hpnumber|powernumber|commas|cast|debuffs|buffs|arrows|friendly|hpname|colors|minimap|titles|dots|combo|tot  - toggle features")
     print("  /kui dotprobe  - show what DoT prediction can see on your target")
     print("  /kui reset  - restore defaults")
 end
@@ -133,6 +151,19 @@ local function Handle(msg)
             ns:RefreshAll()
         end
         ns.Print("raid mark position: " .. tostring(db.raidSpot) .. " (top, left, right)")
+    elseif cmd == "hpstyle" or cmd == "powerstyle" then
+        local key = cmd == "hpstyle" and "healthNumberStyle" or "powerTextStyle"
+        if arg and ns.NUMBER_STYLE_NAMES[arg] then
+            db[key] = arg
+            ns:RefreshAll()
+        end
+        ns.Print(cmd .. ": " .. tostring(db[key]) .. " (" .. table.concat(ns.NUMBER_STYLES, ", ") .. ")")
+    elseif cmd == "powerbar" then
+        if arg and ns.POWER_SHOW_NAMES[arg] then
+            db.powerBar = arg
+            ns:RefreshAll()
+        end
+        ns.Print("power bar: " .. tostring(db.powerBar) .. " (off, self, target, all)")
     elseif cmd == "buffpos" then
         if arg and ns.BUFF_SPOT_NAMES[arg] then
             db.buffSpot = arg

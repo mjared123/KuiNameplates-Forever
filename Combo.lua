@@ -58,7 +58,7 @@ function ns.ShowCombo(plate, points, max)
         if i <= max then
             pip:ClearAllPoints()
             pip:SetPoint("CENTER", plate.health, "BOTTOM",
-                -total / 2 + PIP_WIDTH / 2 + (i - 1) * (PIP_WIDTH + PIP_GAP), 0)
+                -total / 2 + PIP_WIDTH / 2 + (i - 1) * (PIP_WIDTH + PIP_GAP), -(plate.powerGap or 0))
             pip:SetValue(points)
             pip:Show()
         else

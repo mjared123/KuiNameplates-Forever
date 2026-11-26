@@ -48,6 +48,7 @@ local UNIT_EVENTS = {
     "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_UPDATE", "UNIT_SPELLCAST_CHANNEL_STOP",
     "UNIT_SPELLCAST_INTERRUPTIBLE", "UNIT_SPELLCAST_NOT_INTERRUPTIBLE",
     "UNIT_TARGET", "UNIT_DISPLAYPOWER", "UNIT_MAXPOWER",
+    "UNIT_POWER_FREQUENT", "UNIT_POWER_UPDATE",
 }
 
 local CAST_EVENTS = {
@@ -334,12 +335,31 @@ function ns:CreatePlate(nameplate)
     plate.hpName = { bar = hpBar, clip = hpClip, text = hpText }
     plate.nameColor = { 1, 1, 1 }
 
-    -- Level and health percent straddle the bottom edge of the bar.
+    -- Level and health percent straddle the bottom edge of the bar. The
+    -- level is placed in ApplyLayout, where the player's nudge is added.
     plate.level = health:CreateFontString(nil, "OVERLAY")
-    plate.level:SetPoint("LEFT", health, "BOTTOMLEFT", 2, 1)
 
     plate.healthText = health:CreateFontString(nil, "OVERLAY")
     plate.healthText:SetPoint("RIGHT", health, "BOTTOMRIGHT", -2, 1)
+
+    -- Current health as a plain number. It starts on the bottom left edge of
+    -- the bar, where the level sits when that is on, and can be moved.
+    plate.healthNumber = health:CreateFontString(nil, "OVERLAY")
+
+    -- Power bar (mana, energy, rage) under the health bar.
+    local power = CreateFrame("StatusBar", nil, plate)
+    power:SetStatusBarTexture(BAR)
+    AddBorder(power, 0.9)
+    power:SetMinMaxValues(0, 1)
+    power:SetValue(0)
+    power:Hide()
+    plate.power = power
+    plate.powerGap = 0
+    -- Power number, drawn above the bars on a frame that hides with the bar.
+    local powerTextHolder = CreateFrame("Frame", nil, power)
+    powerTextHolder:SetAllPoints(power)
+    powerTextHolder:SetFrameLevel(text:GetFrameLevel())
+    plate.powerText = powerTextHolder:CreateFontString(nil, "OVERLAY")
 
     plate.raidIcon = text:CreateTexture(nil, "OVERLAY")
     plate.raidIcon:SetTexture(RAID_ICONS)
@@ -393,6 +413,15 @@ function Plate:ApplyLayout()
     self:PlaceName()
     self.level:SetFont(ns.FontFile(), db.infoSize, "OUTLINE")
     self.healthText:SetFont(ns.FontFile(), db.infoSize, "OUTLINE")
+    self.healthNumber:SetFont(ns.FontFile(), db.infoSize, "OUTLINE")
+    self.powerText:SetFont(ns.FontFile(), db.infoSize, "OUTLINE")
+    self.powerText:ClearAllPoints()
+    self.powerText:SetPoint("CENTER", self.power, "CENTER", db.powerTextX or 0, db.powerTextY or 0)
+    self.level:ClearAllPoints()
+    self.level:SetPoint("LEFT", self.health, "BOTTOMLEFT", 2 + (db.levelX or 0), 1 + (db.levelY or 0))
+    self.healthNumber:ClearAllPoints()
+    self.healthNumber:SetPoint("LEFT", self.health, "BOTTOMLEFT", 2 + (db.healthNumberX or 0), 1 + (db.healthNumberY or 0))
+    self:PlacePower()
     ns.SetFont(self.cast.text, db.castTextSize)
     ns.SetFont(self.targetName, db.castTextSize)
     self.targetName:SetWidth(db.width)
@@ -415,6 +444,7 @@ function Plate:LayoutCast()
     local icon, text = cast.icon, cast.text
     local style = ns.CAST_STYLE_NAMES[db.castStyle] and db.castStyle or "thin"
     local dy = db.castTextOffset or 0 -- the spell name moved up (+) or down (-)
+    local gap = self.powerGap or 0     -- room left for the power bar
     cast.style = style
     cast:ClearAllPoints()
     icon:ClearAllPoints()
@@ -425,7 +455,7 @@ function Plate:LayoutCast()
         -- and the spell name sits on its bottom edge.
         height = db.castHeight + 13
         cast:SetSize(height * 2, height)
-        cast:SetPoint("TOP", health, "BOTTOM", 0, -6)
+        cast:SetPoint("TOP", health, "BOTTOM", 0, -6 - gap)
         icon:SetAllPoints(cast)
         icon:SetTexCoord(0.08, 0.92, 0.29, 0.71)
         text:SetPoint("CENTER", cast, "BOTTOM", 0, -1 + dy)
@@ -433,8 +463,8 @@ function Plate:LayoutCast()
         -- A taller bar under the health bar with the spell name inside it,
         -- and a square icon to the left as tall as both bars together.
         height = db.castHeight + 11
-        cast:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -3)
-        cast:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT", 0, -3)
+        cast:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -3 - gap)
+        cast:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT", 0, -3 - gap)
         cast:SetHeight(height)
         icon:SetPoint("TOPRIGHT", health, "TOPLEFT", -3, 0)
         icon:SetPoint("BOTTOMRIGHT", cast, "BOTTOMLEFT", -3, 0)
@@ -445,8 +475,8 @@ function Plate:LayoutCast()
         -- A thin bar under the health bar, a square icon to the left of
         -- both bars, and the spell name underneath.
         height = db.castHeight
-        cast:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -3)
-        cast:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT", 0, -3)
+        cast:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -3 - gap)
+        cast:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT", 0, -3 - gap)
         cast:SetHeight(height)
         icon:SetPoint("TOPRIGHT", health, "TOPLEFT", -3, 0)
         icon:SetPoint("BOTTOMRIGHT", cast, "BOTTOMLEFT", -3, 0)
@@ -600,6 +630,11 @@ function Plate:OnUnitRemoved()
     self.cast:Hide()
     self:SetHealthNameValue(nil, nil)
     self:ShowHealthName(false)
+    self.wantsPower = false
+    if self.power:IsShown() then
+        self.power:Hide()
+        self:RelayoutBelow()
+    end
     self:Hide()
 end
 
@@ -617,8 +652,13 @@ function Plate:OnEvent(event)
         Try(self.UpdateName, self)
     elseif event == "UNIT_LEVEL" or event == "UNIT_CLASSIFICATION_CHANGED" then
         Try(self.UpdateLevel, self)
-    else -- faction or threat changes
+    elseif event == "UNIT_POWER_FREQUENT" or event == "UNIT_POWER_UPDATE" then
+        if self.wantsPower then Try(self.UpdatePower, self) end
+    else -- faction, threat or power type changes
         Try(self.UpdateColor, self)
+        if event == "UNIT_DISPLAYPOWER" or event == "UNIT_MAXPOWER" then
+            Try(self.UpdatePower, self)
+        end
     end
 end
 
@@ -733,6 +773,7 @@ function Plate:UpdateHealth()
     self.health:SetValue(cur)
     self:SetHealthNameValue(cur, max)
     self:UpdateHealthText(cur, max)
+    self:UpdateHealthNumber(cur, max)
     if self.dotBar then Try(ns.UpdateDots, self) end
 end
 
@@ -765,6 +806,211 @@ function Plate:UpdateHealthText(cur, max)
         end
     end
     text:SetText("")
+end
+
+-- Number styles ---------------------------------------------------------------
+
+ns.NUMBER_STYLES = { "number", "short", "percent", "curmax", "numpercent", "curmaxpercent" }
+ns.NUMBER_STYLE_NAMES = {
+    number = "Number (3432)",
+    short = "Short (3.4k)",
+    percent = "Percent (62%)",
+    curmax = "Number / max (3432 / 5500)",
+    numpercent = "Number and percent (3432 | 62%)",
+    curmaxpercent = "Number / max and percent",
+}
+
+-- Readable numbers are formatted here. 3432 -> "3,432" with commas on.
+local function Commas(n)
+    local s = string.format("%d", n)
+    local sign, digits = s:match("^(-?)(%d+)$")
+    if not digits then return s end
+    digits = digits:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+    return sign .. digits
+end
+
+local function Short(n)
+    local a = math.abs(n)
+    if a >= 1e9 then return string.format("%.1fb", n / 1e9):gsub("%.0b", "b") end
+    if a >= 1e6 then return string.format("%.1fm", n / 1e6):gsub("%.0m", "m") end
+    if a >= 1e4 then return string.format("%.0fk", n / 1e3) end
+    if a >= 1e3 then return string.format("%.1fk", n / 1e3):gsub("%.0k", "k") end
+    return string.format("%d", n)
+end
+
+-- One number as text. A readable number is formatted in Lua; a hidden one
+-- is handed to the game's own formatters, which accept hidden values, or
+-- else passed on as it is.
+local function FormatOne(value, short, commas)
+    local plain = Plain(value)
+    if plain then
+        if short then return (Short(plain)) end
+        return commas and Commas(plain) or string.format("%d", plain)
+    end
+    if short and AbbreviateNumbers then
+        local ok, s = pcall(AbbreviateNumbers, value)
+        if ok and s ~= nil then return s end
+    elseif commas and BreakUpLargeNumbers then
+        local ok, s = pcall(BreakUpLargeNumbers, value)
+        if ok and s ~= nil then return s end
+    end
+    return value
+end
+
+-- Fill a font string with cur and max in the chosen style. getPercent()
+-- returns the game's own 0-100 percent (possibly hidden) when the numbers
+-- themselves are hidden; it may be nil.
+local function SetNumberText(fs, style, cur, max, getPercent)
+    if cur == nil then fs:SetText("") return end
+    local commas = ns.db.numberCommas
+    local wantPct = style == "percent" or style == "numpercent" or style == "curmaxpercent"
+    local pct
+    if wantPct then
+        local c, m = Plain(cur), Plain(max)
+        if c and m then
+            pct = m > 0 and math.floor(c / m * 100 + 0.5) or 0
+        elseif getPercent then
+            local ok, p = pcall(getPercent)
+            if ok then pct = p end
+        end
+    end
+    local num = FormatOne(cur, style == "short", commas)
+    local ok
+    if style == "percent" then
+        ok = pct ~= nil and pcall(fs.SetFormattedText, fs, "%.0f%%", pct)
+    elseif style == "curmax" or style == "curmaxpercent" then
+        local mx = max ~= nil and FormatOne(max, false, commas) or nil
+        if mx == nil then
+            ok = pcall(fs.SetFormattedText, fs, "%s", num)
+        elseif style == "curmaxpercent" and pct ~= nil then
+            ok = pcall(fs.SetFormattedText, fs, "%s / %s | %.0f%%", num, mx, pct)
+        else
+            ok = pcall(fs.SetFormattedText, fs, "%s / %s", num, mx)
+        end
+    elseif style == "numpercent" and pct ~= nil then
+        ok = pcall(fs.SetFormattedText, fs, "%s | %.0f%%", num, pct)
+    else
+        ok = pcall(fs.SetFormattedText, fs, "%s", num)
+    end
+    if not ok and not pcall(fs.SetText, fs, cur) then fs:SetText("") end
+end
+ns.SetNumberText = SetNumberText
+
+-- Current health as text, such as 3432, shown at any health. Hidden values
+-- are handed straight to the text and never inspected.
+function Plate:UpdateHealthNumber(cur, max)
+    local text, unit = self.healthNumber, self.unit
+    if not ns.db.healthNumber then text:SetText("") return end
+    SetNumberText(text, ns.db.healthNumberStyle, cur, max, function()
+        return UnitHealthPercent(unit, true, CurveConstants.ScaleTo100)
+    end)
+end
+
+-- Power bar ------------------------------------------------------------------
+
+ns.POWER_SHOWS = { "off", "self", "target", "all" }
+ns.POWER_SHOW_NAMES = {
+    off = "Off",
+    self = "Your own plate only",
+    target = "Your own plate and your target",
+    all = "Every plate with a health bar",
+}
+
+local POWER_FALLBACK = { 0.00, 0.55, 1.00 } -- mana blue
+local POWER_ENERGY = { 1.00, 0.96, 0.41 }
+
+-- The power bar hangs under the health bar, moved by the player's nudge.
+-- While it shows, the cast bar, target name and combo points move down to
+-- make room for as much of it as sits below the health bar.
+function Plate:PlacePower()
+    local db, power = ns.db, self.power
+    local height = db.powerHeight or 3
+    local x, y = db.powerX or 0, db.powerY or 0
+    power:ClearAllPoints()
+    power:SetPoint("TOPLEFT", self.health, "BOTTOMLEFT", x, y - 2)
+    power:SetPoint("TOPRIGHT", self.health, "BOTTOMRIGHT", x, y - 2)
+    power:SetHeight(height)
+    self.powerGap = power:IsShown() and math.max(0, height + 2 - y) or 0
+end
+
+-- Re-place everything that sits under the health bar.
+function Plate:RelayoutBelow()
+    self:PlacePower()
+    self:LayoutCast()
+    self:PlaceTargetName()
+    if self.combo and self.combo:IsShown() and ns.UpdateCombo then Try(ns.UpdateCombo, ns) end
+end
+
+-- Whether this plate should show a power bar, from the setting.
+function Plate:WantsPower()
+    local mode = ns.db.powerBar
+    if not (self.unit and ns.POWER_SHOW_NAMES[mode]) or mode == "off" or self.nameOnly then
+        return false
+    end
+    if mode == "all" then return true end
+    -- Your own plate (the game's personal resource display, when it's on).
+    local ok, own = pcall(C_NamePlate.GetNamePlateForUnit, "player")
+    if (ok and own and own == self.nameplate) or Plain(UnitIsUnit(self.unit, "player")) then
+        return true
+    end
+    return mode == "target" and self.isTarget or false
+end
+
+-- Power numbers may be hidden, so they go straight to the bar.
+function Plate:UpdatePower()
+    local power, unit = self.power, self.unit
+    local show = self:WantsPower()
+    self.wantsPower = show
+    local max = show and UnitPowerMax(unit) or nil
+    if max == nil or Plain(max) == 0 then show = false end
+    if show then
+        local ptype, token = UnitPowerType(unit)
+        ptype, token = Plain(ptype), Plain(token)
+        local colors = PowerBarColor
+        local c = colors and ((token and colors[token]) or (ptype and colors[ptype])) or nil
+        if c and c.r then
+            power:SetStatusBarColor(c.r, c.g, c.b)
+        else
+            power:SetStatusBarColor(POWER_FALLBACK[1], POWER_FALLBACK[2], POWER_FALLBACK[3])
+        end
+        local cur = UnitPower(unit)
+        power:SetMinMaxValues(0, max)
+        power:SetValue(cur)
+        if ns.db.powerText then
+            SetNumberText(self.powerText, ns.db.powerTextStyle, cur, max, function()
+                return UnitPowerPercent(unit, nil, true, CurveConstants.ScaleTo100)
+            end)
+        else
+            self.powerText:SetText("")
+        end
+    end
+    if show ~= power:IsShown() then
+        power:SetShown(show)
+        self:RelayoutBelow()
+    end
+end
+
+-- A sample energy bar on the test plate.
+function Plate:TestPower(show)
+    local power, mode = self.power, ns.db.powerBar
+    show = (show and mode ~= "off" and ns.POWER_SHOW_NAMES[mode]) and true or false
+    if show then
+        local c = PowerBarColor and PowerBarColor.ENERGY
+        if c and c.r then
+            power:SetStatusBarColor(c.r, c.g, c.b)
+        else
+            power:SetStatusBarColor(POWER_ENERGY[1], POWER_ENERGY[2], POWER_ENERGY[3])
+        end
+        power:SetMinMaxValues(0, 100)
+        power:SetValue(60)
+        if ns.db.powerText then
+            SetNumberText(self.powerText, ns.db.powerTextStyle, 60, 100)
+        else
+            self.powerText:SetText("")
+        end
+    end
+    power:SetShown(show)
+    self:RelayoutBelow()
 end
 
 -- A curve mapping health fraction to text alpha: visible below 100%, hidden at 100%.
@@ -1087,7 +1333,7 @@ function Plate:PlaceTargetName()
     elseif cast:IsShown() then
         fs:SetPoint("TOP", cast.text, "BOTTOM", 0, -1)
     else
-        fs:SetPoint("TOP", self.health, "BOTTOM", 0, -4)
+        fs:SetPoint("TOP", self.health, "BOTTOM", 0, -4 - (self.powerGap or 0))
     end
 end
 
@@ -1142,6 +1388,7 @@ function Plate:UpdateTarget()
     self:UpdateGlow()
     -- You may have become (or stopped being) this unit's target.
     Try(self.UpdateTargetName, self)
+    Try(self.UpdatePower, self)
 end
 
 -- Target gets a soft blue glow; otherwise, outside tank mode, a red threat
@@ -1792,6 +2039,12 @@ function Plate:ShowTest(friendly)
     self.healthText:SetText((db.healthText and not friendly) and "62%" or "")
     self.level:SetText(db.showLevel and "25" or "")
     self.level:SetTextColor(1, 0.82, 0)
+    if db.healthNumber and not friendly then
+        SetNumberText(self.healthNumber, db.healthNumberStyle, 3432, 5500)
+    else
+        self.healthNumber:SetText("")
+    end
+    self:TestPower(not friendly)
     -- A skull on the sample enemy shows where raid marks go.
     if friendly then
         self.raidIcon:Hide()

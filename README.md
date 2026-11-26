@@ -11,7 +11,9 @@ Copy the `KuiNameplates` folder into `World of Warcraft/_forever_/Interface/AddO
 **Enemy plates**
 - Compact bars sized in screen pixels, the same at any UI scale, with an overall size slider
 - Muted reaction colours, class colours for enemy players
-- Level with elite/rare markers and health percent on the bottom edge of the bar
+- Level with elite/rare markers and health percent on the bottom edge of the bar; the level can be moved
+- Optional current health as a plain number (3432), placed wherever you like on or around the bar
+- Optional power bar (energy, rage, mana) under the health bar on your own plate, your target or every plate, with height and position settings
 - Soft glow: blue on your target, orange or red for threat; optional tank mode bar colours you can pick
 - Optional bar colour for enemy NPCs that cast spells
 - Arrows either side of your target (optional), with colour, size and position settings
@@ -40,7 +42,7 @@ Copy the `KuiNameplates` folder into `World of Warcraft/_forever_/Interface/AddO
 - Batched updates so big pulls at long range stay smooth
 
 ## Settings
-`/kui config`, the minimap button, or Options > AddOns opens the settings, split into General, Enemies, Friendly, Cast bars, Auras and Experimental tabs.
+`/kui config`, the minimap button, or Options > AddOns opens the settings, split into General, Enemies, Layout, Friendly, Cast bars, Auras and Experimental tabs.
 `/kui test` (or right-click the minimap button) shows sample plates, a looping cast, debuffs and buffs to try settings on.
 `/kui` lists all slash commands.
 

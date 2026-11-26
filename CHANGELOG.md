@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.10.0
+- Health number: show an enemy's current health as a plain number, such as 3432, at any health. It sits on the bottom left edge of the bar, where the level goes, so move one of them if you show both. Off by default; turn it on in the new Layout tab or with `/kui hpnumber`. Move it left, right, up or down with the sliders there, or `/kui healthx` and `/kui healthy`.
+- Number styles for the health number: number (3432), short (3.4k), percent (62%), number / max (3432 / 5500), number and percent, or number / max and percent. A separate setting adds commas to big numbers (3,432). Also `/kui hpstyle` and `/kui commas`.
+- Level text can now be moved left, right, up or down (Layout tab, or `/kui levelx` and `/kui levely`).
+- Power bar: a thin energy, rage or mana bar under the health bar, coloured by power type. Show it on your own plate only, your own plate and your target, or every plate with a bar (Layout tab, or `/kui powerbar off|self|target|all`). Off by default. Its height and position can be changed, and the cast bar, combo points and target name move down to make room. Your own plate appears when the game's personal resource display is on.
+- Power number: an optional number on the power bar, with the same styles and its own left/right and up/down settings (Layout tab, or `/kui powernumber`, `/kui powerstyle`, `/kui powertextx` and `/kui powertexty`).
+
 ## v0.9.0
 - Target arrows: new settings on the General tab for their colour, size, distance from the bar and height. Also `/kui arrowsize`, `/kui arrowdistance` and `/kui arrowheight`.
 - Caster colour: an option on the Enemies tab (or `/kui casters`) to give enemy NPCs that use mana their own bar colour, blue unless you pick another. Off by default. Player pets and neutral NPCs keep their usual colour, and tank mode colours come first.

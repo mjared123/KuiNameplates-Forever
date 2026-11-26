@@ -9,7 +9,7 @@ ns.defaults = {
     nameParts = "full",   -- player names: full, first or last
     nameSize = 11,        -- enemy name font size
     nameOffset = 0,       -- moves the enemy name up or down from the bar's top edge
-    infoSize = 8,         -- level and health percent font size
+    infoSize = 8,         -- level and health text font size
     castTextSize = 9,     -- spell name font size
     friendNameSize = 11,  -- font size of friendly names shown without a bar
     titleSize = 10,       -- NPC title / guild line font size
@@ -24,6 +24,17 @@ ns.defaults = {
     classColors = true,   -- colour enemy players by class
     healthText = true,    -- show health percent when damaged
     showLevel = false,
+    levelX = 0, levelY = 0, -- level text moved right (+) / left (-) and up (+) / down (-)
+    healthNumber = false, -- current health as a plain number, such as 3432
+    healthNumberStyle = "number", -- number, short, percent, curmax, numpercent, curmaxpercent
+    numberCommas = false, -- 3,432 instead of 3432 in the health and power numbers
+    powerText = false,    -- a number on the power bar
+    powerTextStyle = "number", -- same styles as the health number
+    powerTextX = 0, powerTextY = 0, -- its nudge from the centre of the power bar
+    healthNumberX = 0, healthNumberY = 0, -- its nudge from the bottom left of the bar
+    powerBar = "off",     -- power bar: off, self, target or all
+    powerHeight = 3,      -- power bar height
+    powerX = 0, powerY = 0, -- power bar moved right (+) / left (-) and up (+) / down (-)
     tankMode = false,     -- colour bars by whether you hold threat
     tankOkR = 0.16, tankOkG = 0.36, tankOkB = 0.66,    -- tank mode: you hold threat
     tankBadR = 0.72, tankBadG = 0.32, tankBadB = 0.06, -- tank mode: slipping, or not on you
