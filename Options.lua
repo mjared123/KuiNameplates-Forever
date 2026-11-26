@@ -15,7 +15,7 @@ local CONTROL_WIDTH = 230
 --   { "button", label, onClick }
 --   { "note", text }                    -- grey help text
 --   { "custom", builder }               -- builder(page, x, y) returns widget, height
--- Builders for the Filters tab, filled in further down.
+-- Builders for the Hide tab, filled in further down.
 local Lists = {}
 
 local function Pages()
@@ -121,7 +121,7 @@ local function Pages()
               { "slider", "auraOffset", "Distance from the bar", -20, 40, 1 },
             } },
         },
-        { name = "Filters",
+        { name = "Hide",
           { { title = "Hidden auras",
               { "note", "These buffs and debuffs never show on plates. Type a spell name (hides every rank) or a spell ID, or tick one on the right." },
               { "custom", function(...) return Lists.Hidden(...) end },
@@ -405,7 +405,7 @@ local function CreateButton(page, text, onClick, x, y, panel)
     return button, 30
 end
 
--- Aura filter lists -------------------------------------------------------------
+-- Aura hide lists -------------------------------------------------------------
 
 local LIST_ROW = 22
 local KIND_NAMES = { buff = "buff", debuff = "debuff" }
