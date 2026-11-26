@@ -69,6 +69,8 @@ ns.defaults = {
     auraColors = true,    -- colour debuff borders by type (poison, curse, ...)
     maxDistance = nil,    -- nameplateMaxDistance CVar; nil leaves the game's value
     dotPrediction = false, -- experimental: DoT damage still to come on the health bar
+    hideOnFriends = true, -- hidden auras are hidden on friendly plates too
+    -- hiddenAuras and seenAuras are lists, set up in Filters.lua
 }
 
 local function CopyDefaults(src, dst)
@@ -170,6 +172,7 @@ function ns:ADDON_LOADED(name)
     if not saved.thinCast then saved.castHeight = nil end
     KuiNameplatesForeverDB = CopyDefaults(self.defaults, saved)
     self.db = KuiNameplatesForeverDB
+    self:InitAuraFilters()
 
     events:RegisterEvent("PLAYER_LOGIN")
     events:RegisterEvent("NAME_PLATE_UNIT_ADDED")

@@ -89,7 +89,7 @@ local function Try(func, ...)
         local handler = geterrorhandler and geterrorhandler()
         if handler then handler(err) end
     end
-    return ok
+    return ok, err
 end
 ns.Try = Try
 ns.Plain = Plain
@@ -1759,6 +1759,46 @@ local function ShownChildren(list, into)
     return into
 end
 
+-- Drop the icons of hidden auras from a group (see Filters.lua). Out of
+-- combat a hidden icon is made invisible and left out of the layout, so the
+-- rest close up. When the game hides the spell from the addon, the game is
+-- asked to make the icon invisible instead, and it keeps its place.
+local function FilterHidden(items, kind, unit)
+    local kept = {}
+    for _, item in ipairs(items) do
+        local id, name, icon, hiddenID = ns.ReadAura(lastAura[item])
+        if id or name then
+            ns:NoteSeenAura(id, name, icon, kind)
+            if ns:IsAuraHidden(id, name, unit) then
+                item:SetAlpha(0)
+            else
+                item:SetAlpha(1)
+                kept[#kept + 1] = item
+            end
+        else
+            if not (hiddenID and ns.HideBySecret(item, hiddenID)) then item:SetAlpha(1) end
+            kept[#kept + 1] = item
+        end
+    end
+    return kept
+end
+
+-- The buff and debuff icons on your target's plate, with the aura each one
+-- shows, for /kui auraprobe.
+function ns:TargetAuraItems()
+    local nameplate = C_NamePlate.GetNamePlateForUnit("target")
+    local plate = nameplate and nameplate.KuiForeverPlate
+    local auras = plate and plate.gameAuras
+    if not auras then return nil end
+    local out = {}
+    for _, group in ipairs({ { "debuff", auras.DebuffListFrame }, { "buff", auras.BuffListFrame } }) do
+        for _, item in ipairs(ShownChildren(group[2], {})) do
+            out[#out + 1] = { kind = group[1], aura = lastAura[item] }
+        end
+    end
+    return out
+end
+
 local function PlaceList(list, plate, auraScale)
     if not list then return end
     list:ClearAllPoints()
@@ -1789,6 +1829,10 @@ local function ArrangeAuras(auras)
     -- On enemies the game keeps only buffs you can purge or steal, and a
     -- short list of important ones; on friends, the buffs you cast.
     local buffs = db.buffs and ShownChildren(auras.BuffListFrame, {}) or {}
+    local okDebuffs, keptDebuffs = Try(FilterHidden, debuffs, "debuff", plate.unit)
+    if okDebuffs then debuffs = keptDebuffs end
+    local okBuffs, keptBuffs = Try(FilterHidden, buffs, "buff", plate.unit)
+    if okBuffs then buffs = keptBuffs end
     local others = ShownChildren(auras.CrowdControlListFrame, {})
     local spot = db.auraSpot or "top"
     local side = spot == "right" and "left" or "right"

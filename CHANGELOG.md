@@ -6,6 +6,10 @@
 - Level text can now be moved left, right, up or down (Layout tab, or `/kui levelx` and `/kui levely`).
 - Power bar: a thin energy, rage or mana bar under the health bar, coloured by power type. Show it on your own plate only, your own plate and your target, or every plate with a bar (Layout tab, or `/kui powerbar off|self|target|all`). Off by default. Its height and position can be changed, and the cast bar, combo points and target name move down to make room. Your own plate appears when the game's personal resource display is on.
 - Power number: an optional number on the power bar, with the same styles and its own left/right and up/down settings (Layout tab, or `/kui powernumber`, `/kui powerstyle`, `/kui powertextx` and `/kui powertexty`).
+- Hide buffs and debuffs you don't want to see. The new Filters tab has a list of hidden auras: type a spell name (hides every rank) or a spell ID. Next to it, "Seen on plates" lists every buff and debuff the addon has spotted, newest first, with a tick box to hide each one. Also `/kui hide <name or ID>`, `/kui unhide <name or ID>`, and `/kui hide` on its own to list them.
+- Hidden auras are taken out of the row and the other icons close up. In combat the game may keep the spell from the addon; the icon is then made invisible but can leave a gap in the row until it is next rebuilt.
+- An option to keep hidden auras showing on friendly plates.
+- New `/kui auraprobe` command: lists the buff and debuff icons on your target and what the addon can see about each, to check how hiding works in combat.
 
 ## v0.9.0
 - Target arrows: new settings on the General tab for their colour, size, distance from the bar and height. Also `/kui arrowsize`, `/kui arrowdistance` and `/kui arrowheight`.

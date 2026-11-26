@@ -14,6 +14,10 @@ local CONTROL_WIDTH = 230
 --   { "color", keyPrefix, label }       -- uses keyPrefix .. "R" / "G" / "B"
 --   { "button", label, onClick }
 --   { "note", text }                    -- grey help text
+--   { "custom", builder }               -- builder(page, x, y) returns widget, height
+-- Builders for the Filters tab, filled in further down.
+local Lists = {}
+
 local function Pages()
     return {
         { name = "General",
@@ -141,6 +145,18 @@ local function Pages()
               { "slider", "auraWidth", "Icon size", 12, 40, 1 },
               { "slider", "auraTextSize", "Timer and stack text size", 6, 24, 1 },
               { "slider", "auraOffset", "Distance from the bar", -20, 40, 1 },
+            } },
+        },
+        { name = "Filters",
+          { { title = "Hidden auras",
+              { "note", "These buffs and debuffs never show on plates. Type a spell name (hides every rank) or a spell ID, or tick one on the right." },
+              { "custom", function(...) return Lists.Hidden(...) end },
+              { "custom", function(...) return Lists.HideBox(...) end },
+              { "check", "hideOnFriends", "Hide them on friendly plates too" },
+            } },
+          { { title = "Seen on plates",
+              { "custom", function(...) return Lists.Seen(...) end },
+              { "note", "In combat the game may keep the spell from the addon. A hidden aura is then made invisible but can leave a gap until combat ends." },
             } },
         },
         { name = "Experimental",
@@ -415,6 +431,209 @@ local function CreateButton(page, text, onClick, x, y, panel)
     return button, 30
 end
 
+-- Aura filter lists -------------------------------------------------------------
+
+local LIST_ROW = 22
+local KIND_NAMES = { buff = "buff", debuff = "debuff" }
+
+-- A scrolling list of rows. getList() returns the entries; fill(row, entry)
+-- sets one row up. The mouse wheel scrolls it.
+local function CreateRowList(page, x, y, count, empty, makeRow, getList, fill)
+    local frame = CreateFrame("Frame", nil, page)
+    frame:SetPoint("TOPLEFT", x, y)
+    frame:SetSize(COLUMN_WIDTH, count * LIST_ROW + 16)
+    frame:EnableMouseWheel(true)
+    frame.offset = 0
+    local rows = {}
+    for i = 1, count do
+        local row = makeRow(frame)
+        row:SetSize(COLUMN_WIDTH, LIST_ROW)
+        row:SetPoint("TOPLEFT", 0, -(i - 1) * LIST_ROW)
+        if i % 2 == 1 then
+            local stripe = row:CreateTexture(nil, "BACKGROUND")
+            stripe:SetTexture(SOLID)
+            stripe:SetVertexColor(1, 1, 1, 0.04)
+            stripe:SetAllPoints(row)
+        end
+        rows[i] = row
+    end
+    local emptyText = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    emptyText:SetPoint("TOPLEFT", 4, -4)
+    emptyText:SetWidth(COLUMN_WIDTH - 8)
+    emptyText:SetJustifyH("LEFT")
+    emptyText:SetText(empty)
+    local more = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    more:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -2, -count * LIST_ROW - 2)
+
+    frame.Refresh = function(self)
+        local list = getList()
+        local maxOffset = math.max(0, #list - count)
+        self.offset = math.min(math.max(self.offset, 0), maxOffset)
+        for i, row in ipairs(rows) do
+            local entry = list[self.offset + i]
+            row:SetShown(entry ~= nil)
+            if entry then fill(row, entry) end
+        end
+        emptyText:SetShown(#list == 0)
+        if maxOffset > 0 then
+            more:SetFormattedText("%d-%d of %d, scroll for more", self.offset + 1, self.offset + count, #list)
+        else
+            more:SetText("")
+        end
+    end
+    frame:SetScript("OnMouseWheel", function(self, delta)
+        self.offset = self.offset - delta * 3
+        self:Refresh()
+    end)
+    return frame, count * LIST_ROW + 18
+end
+
+-- Icon and name on the left of a list row.
+local function AddIconAndName(row, left)
+    row.icon = row:CreateTexture(nil, "ARTWORK")
+    row.icon:SetSize(16, 16)
+    row.icon:SetPoint("LEFT", left, 0)
+    row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    row.name = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+    row.name:SetJustifyH("LEFT")
+    row.kind = row:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+end
+
+local function FillIconAndName(row, entry)
+    row.icon:SetTexture(entry.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+    row.name:SetText(entry.name or "?")
+    row.kind:SetText(KIND_NAMES[entry.kind] or "")
+end
+
+-- Left column: the hidden auras, each with a button to show it again.
+local function CreateHiddenList(page, x, y)
+    return CreateRowList(page, x, y, 8, "Nothing hidden yet.",
+        function(frame)
+            local row = CreateFrame("Frame", nil, frame)
+            AddIconAndName(row, 4)
+            row.remove = CreateFrame("Button", nil, row)
+            row.remove:SetSize(20, 20)
+            row.remove:SetPoint("RIGHT", -2, 0)
+            local cross = row.remove:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+            cross:SetPoint("CENTER")
+            cross:SetText("x")
+            cross:SetTextColor(1, 0.35, 0.3)
+            local hover = row.remove:CreateTexture(nil, "HIGHLIGHT")
+            hover:SetTexture(SOLID)
+            hover:SetVertexColor(1, 1, 1, 0.1)
+            hover:SetAllPoints(row.remove)
+            row.remove:SetScript("OnClick", function() ns:ShowAura(row.key) end)
+            row.kind:SetPoint("RIGHT", row.remove, "LEFT", -6, 0)
+            row.name:SetPoint("RIGHT", row.kind, "LEFT", -6, 0)
+            return row
+        end,
+        function() return ns:HiddenAuraList() end,
+        function(row, item)
+            row.key = item.key
+            FillIconAndName(row, item.entry)
+            if type(item.key) == "number" then
+                row.name:SetText((item.entry.name or "?") .. " |cff888888(ID " .. item.key .. ")|r")
+            end
+        end)
+end
+
+-- A box to type a spell name or ID into, with an Add button.
+local function CreateHideBox(page, x, y)
+    local box = CreateFrame("EditBox", nil, page, "InputBoxTemplate")
+    box:SetSize(COLUMN_WIDTH - 80, 20)
+    box:SetPoint("TOPLEFT", x + 6, y - 4)
+    box:SetAutoFocus(false)
+    box:SetMaxLetters(80)
+    local hint = box:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    hint:SetPoint("LEFT", 2, 0)
+    hint:SetText("Spell name or ID")
+    local add = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
+    add:SetSize(64, 22)
+    add:SetPoint("LEFT", box, "RIGHT", 8, 0)
+    add:SetText("Hide")
+    local function Add()
+        local name, why = ns:HideAura(box:GetText())
+        if name then
+            box:SetText("")
+            box:ClearFocus()
+        else
+            ns.Print(why)
+        end
+    end
+    add:SetScript("OnClick", Add)
+    box:SetScript("OnEnterPressed", Add)
+    box:SetScript("OnEscapePressed", box.ClearFocus)
+    box:SetScript("OnTextChanged", function(self) hint:SetShown(self:GetText() == "") end)
+    box.Refresh = function() end
+    return box, 32
+end
+
+-- Right column: auras seen on plates, ticked when hidden. A row of buttons
+-- picks all, buffs only or debuffs only.
+local seenKind = nil
+local function CreateSeenList(page, x, y)
+    local filters = CreateFrame("Frame", nil, page)
+    filters:SetPoint("TOPLEFT", x, y)
+    filters:SetSize(COLUMN_WIDTH, 22)
+    local list
+    local buttons = {}
+    local bx = 0
+    for _, choice in ipairs({ { "All" }, { "Buffs", "buff" }, { "Debuffs", "debuff" } }) do
+        local b = CreateFrame("Button", nil, filters)
+        AddBox(b)
+        b.label = b:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        b.label:SetPoint("CENTER")
+        b.label:SetText(choice[1])
+        b:SetSize(b.label:GetStringWidth() + 18, 20)
+        b:SetPoint("LEFT", bx, 0)
+        bx = bx + b:GetWidth() + 6
+        b.kind = choice[2]
+        b:SetScript("OnClick", function()
+            seenKind = b.kind
+            list.offset = 0
+            filters:Refresh()
+        end)
+        buttons[#buttons + 1] = b
+    end
+
+    list = CreateRowList(page, x, y - 28, 9, "Nothing seen yet. Buffs and debuffs are listed here once they show on a plate out of combat.",
+        function(frame)
+            local row = CreateFrame("Frame", nil, frame)
+            row.check = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+            row.check:SetSize(22, 22)
+            row.check:SetPoint("LEFT", 0, 0)
+            AddIconAndName(row, 26)
+            row.kind:SetPoint("RIGHT", -4, 0)
+            row.name:SetPoint("RIGHT", row.kind, "LEFT", -6, 0)
+            row.check:SetScript("OnClick", function(self)
+                if self:GetChecked() then
+                    ns:HideAura(row.entry.name, row.entry.kind)
+                else
+                    local key = ns:HiddenKeyFor(row.key)
+                    if key then ns:ShowAura(key) end
+                end
+            end)
+            return row
+        end,
+        function() return ns:SeenAuraList(seenKind) end,
+        function(row, item)
+            row.key, row.entry = item.key, item.entry
+            FillIconAndName(row, item.entry)
+            row.check:SetChecked(ns:HiddenKeyFor(item.key) ~= nil)
+        end)
+
+    filters.Refresh = function()
+        for _, b in ipairs(buttons) do
+            if b.kind == seenKind then b.label:SetTextColor(1, 0.82, 0) else b.label:SetTextColor(0.75, 0.75, 0.75) end
+        end
+        list:Refresh()
+    end
+    return filters, 28 + 9 * LIST_ROW + 18
+end
+
+Lists.Hidden, Lists.HideBox, Lists.Seen = CreateHiddenList, CreateHideBox, CreateSeenList
+
 -- Panel ------------------------------------------------------------------------
 
 -- Fill one tab's page with its two columns of sections.
@@ -436,6 +655,8 @@ local function BuildPage(panel, page, columns, widgets)
                     widget, used = CreateColor(page, item[2], item[3], x, y)
                 elseif kind == "note" then
                     widget, used = CreateNote(page, item[2], x, y)
+                elseif kind == "custom" then
+                    widget, used = item[2](page, x, y)
                 else
                     widget, used = CreateButton(page, item[2], item[3], x, y, panel)
                 end
