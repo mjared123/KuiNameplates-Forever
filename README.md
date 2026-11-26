@@ -33,7 +33,7 @@ Copy the `KuiNameplates` folder into `World of Warcraft/_forever_/Interface/AddO
 - Above, below, left or right of the bar, with a distance setting
 - Enemy buffs you can purge or steal in their own row, above the name or below the bar
 - Borders coloured by type (magic, curse, disease, poison, bleed)
-- Hide any buff or debuff: type a spell name or ID on the Filters tab (or `/kui hide <name>`), or tick it in the list of auras seen on plates
+- Hide any buff or debuff: type a spell name or ID on the Hide tab (or `/kui hide <name>`), or tick it in the list of auras seen on plates
 
 **Experimental (off by default)**
 - DoT damage prediction: a green section at the end of the health bar shows the damage your DoTs and bleeds will still do, and a red skull beside the bar means they are enough to kill. Turn it on in the Experimental tab or with `/kui dots`. A DoT only counts once the game shows your debuff is on the enemy, so immunities and misses drop out; a "?" on the damage number means the game would not confirm it. Damage is read from spell tooltips (English client), so crits are not counted. `/kui dotprobe` prints what the addon can see.
