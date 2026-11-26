@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.11.1
+- Fixed: v0.11.0 broke every nameplate ("attempt to call global 'CreateGem'"). Plates now build again, with the elite icon.
+
 ## v0.11.0
 - Health percent: left/right and up/down sliders on the Enemies tab (`/kui hptextx`, `/kui hptexty`), so it can be moved clear of the health number. You can also turn it off there (`/kui hp`).
 - The level sliders moved to the Enemies tab, next to the level setting.
