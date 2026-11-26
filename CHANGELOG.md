@@ -8,6 +8,7 @@
 - Your target's plate can be made a little bigger so it stands out, friendly ones included (General tab, "Size of your target's plate", or `/kui targetsize 1.05`).
 - Friendly plates: an option to keep them fully bright while you have a target, instead of fading like other plates (Friendly tab, or `/kui nofade`).
 - Friendly level: an option to show the level left of friendly names, with size and position sliders (Friendly tab, or `/kui friendlevel`).
+- Elite icon: a small gem on the top left corner of the bar shows which enemies in a pack are elite (gold). Rares are silver, rare elites silver with a gold rim, and bosses red with a gold rim. On by default; turn it off, resize it or move it on the Enemies tab, or with `/kui elite`, `/kui elitesize`, `/kui elitex` and `/kui elitey`.
 
 ## v0.10.0
 - Health number: show an enemy's current health as a plain number, such as 3432, at any health. It sits on the bottom left edge of the bar, where the level goes, so move one of them if you show both. Off by default; turn it on in the new Layout tab or with `/kui hpnumber`. Move it left, right, up or down with the sliders there, or `/kui healthx` and `/kui healthy`.

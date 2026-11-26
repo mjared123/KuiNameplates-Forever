@@ -366,6 +366,11 @@ function ns:CreatePlate(nameplate)
     powerTextHolder:SetFrameLevel(text:GetFrameLevel())
     plate.powerText = powerTextHolder:CreateFontString(nil, "OVERLAY")
 
+    -- Elite, rare and boss gem. It belongs to the bar, so it hides on
+    -- name-only plates along with it.
+    plate.elite = CreateGem(health)
+    plate.elite:SetFrameLevel(text:GetFrameLevel() + 1)
+
     plate.raidIcon = text:CreateTexture(nil, "OVERLAY")
     plate.raidIcon:SetTexture(RAID_ICONS)
     plate.raidIcon:SetSize(22, 22)
@@ -439,6 +444,7 @@ function Plate:ApplyLayout()
     self.level:SetPoint("LEFT", self.health, "BOTTOMLEFT", 2 + (db.levelX or 0), 1 + (db.levelY or 0))
     self.healthNumber:ClearAllPoints()
     self.healthNumber:SetPoint("LEFT", self.health, "BOTTOMLEFT", 2 + (db.healthNumberX or 0), 1 + (db.healthNumberY or 0))
+    self:PlaceElite()
     self:PlacePower()
     ns.SetFont(self.cast.text, db.castTextSize)
     ns.SetFont(self.targetName, db.castTextSize)
@@ -672,6 +678,7 @@ function Plate:OnEvent(event)
         Try(self.UpdateName, self)
     elseif event == "UNIT_LEVEL" or event == "UNIT_CLASSIFICATION_CHANGED" then
         Try(self.UpdateLevel, self)
+        Try(self.UpdateElite, self)
     elseif event == "UNIT_POWER_FREQUENT" or event == "UNIT_POWER_UPDATE" then
         if self.wantsPower then Try(self.UpdatePower, self) end
     else -- faction, threat or power type changes
@@ -687,6 +694,7 @@ function Plate:UpdateAll()
     if not self.unit then return end
     Try(self.UpdateName, self)
     Try(self.UpdateLevel, self)
+    Try(self.UpdateElite, self)
     Try(self.UpdateHealth, self)
     Try(self.UpdateColor, self)
     Try(self.UpdateRaidIcon, self)
@@ -1242,6 +1250,88 @@ end
 
 -- Show a raid mark index (1 to 8) on the icon. The index may be a secret
 -- value, so it goes straight to the texture with no maths or comparisons.
+-- Elite icon -------------------------------------------------------------------
+--
+-- A small gem on the top left corner of the bar marks elites, rares and
+-- bosses. It is built from squares turned 45 degrees, so it needs no image.
+
+local GEM_GOLD = { 1.00, 0.80, 0.20 }
+local GEMS = {
+    elite     = { light = { 1.00, 0.84, 0.30 }, dark = { 0.62, 0.40, 0.04 } },
+    rare      = { light = { 0.90, 0.94, 1.00 }, dark = { 0.45, 0.50, 0.58 } },
+    rareelite = { light = { 0.90, 0.94, 1.00 }, dark = { 0.45, 0.50, 0.58 }, rim = GEM_GOLD },
+    worldboss = { light = { 1.00, 0.36, 0.26 }, dark = { 0.50, 0.06, 0.04 }, rim = GEM_GOLD },
+}
+ns.GEMS = GEMS
+
+local function CreateGem(parent)
+    local gem = CreateFrame("Frame", nil, parent)
+    local function Piece(sublevel)
+        local t = gem:CreateTexture(nil, "ARTWORK", nil, sublevel)
+        t:SetTexture(SOLID)
+        t:SetPoint("CENTER")
+        if t.SetRotation then t:SetRotation(math.pi / 4) end
+        return t
+    end
+    gem.edge = Piece(0)
+    gem.edge:SetVertexColor(0, 0, 0, 1)
+    gem.rim = Piece(1)
+    gem.fill = Piece(2)
+    gem.shine = Piece(3)
+    gem.shine:SetVertexColor(1, 1, 1, 0.85)
+    gem:Hide()
+    return gem
+end
+
+-- size is the gem's height from point to point.
+local function SizeGem(gem, size)
+    gem:SetSize(size, size)
+    local side = size / math.sqrt(2) -- a turned square is this much taller
+    gem.edge:SetSize(side + 2, side + 2)
+    gem.rim:SetSize(side, side)
+    gem.side = side
+    local shine = math.max(2, side * 0.32)
+    gem.shine:SetSize(shine, shine)
+    gem.shine:ClearAllPoints()
+    gem.shine:SetPoint("CENTER", 0, size * 0.17)
+end
+
+-- Show the gem for a classification ("elite", "rare", ...), or hide it.
+local function SetGem(gem, kind)
+    local look = kind and GEMS[kind]
+    if not look then gem:Hide() return end
+    local side = gem.side or 8
+    if look.rim then
+        gem.rim:SetVertexColor(look.rim[1], look.rim[2], look.rim[3], 1)
+        gem.rim:Show()
+        gem.fill:SetSize(side - 2.5, side - 2.5)
+    else
+        gem.rim:Hide()
+        gem.fill:SetSize(side, side)
+    end
+    local l, d = look.light, look.dark
+    local ok = gem.fill.SetGradient and CreateColor and pcall(gem.fill.SetGradient, gem.fill,
+        "VERTICAL", CreateColor(d[1], d[2], d[3], 1), CreateColor(l[1], l[2], l[3], 1))
+    if ok then
+        gem.fill:SetVertexColor(1, 1, 1, 1)
+    else
+        gem.fill:SetVertexColor(l[1], l[2], l[3], 1)
+    end
+    gem:Show()
+end
+
+function Plate:PlaceElite()
+    local db = ns.db
+    SizeGem(self.elite, db.eliteSize or 12)
+    self.elite:ClearAllPoints()
+    self.elite:SetPoint("CENTER", self.health, "TOPLEFT", 1 + (db.eliteX or 0), db.eliteY or 0)
+end
+
+function Plate:UpdateElite()
+    local kind = ns.db.showElite and self.unit and Plain(UnitClassification(self.unit))
+    SetGem(self.elite, kind)
+end
+
 local function SetRaidIcon(icon, index)
     if icon.SetSpriteSheetCell then
         icon:SetSpriteSheetCell(index, 4, 4)
@@ -2155,6 +2245,8 @@ function Plate:ShowTest(friendly)
         self.healthNumber:SetText("")
     end
     self:TestPower(not friendly)
+    -- The sample enemy is an elite.
+    SetGem(self.elite, (db.showElite and not friendly) and "elite" or nil)
     -- A skull on the sample enemy shows where raid marks go.
     if friendly then
         self.raidIcon:Hide()

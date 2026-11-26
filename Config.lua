@@ -9,6 +9,7 @@ local toggles = {
     class = { key = "classColors", label = "Class colours on enemy players" },
     tank = { key = "tankMode", label = "Tank mode" },
     level = { key = "showLevel", label = "Level text" },
+    elite = { key = "showElite", label = "Elite, rare and boss icon" },
     hp = { key = "healthText", label = "Health percent" },
     hpnumber = { key = "healthNumber", label = "Health number" },
     friendlevel = { key = "friendLevel", label = "Level left of friendly names" },
@@ -47,6 +48,9 @@ local numbers = {
     arrowheight = { key = "arrowY", min = -20, max = 20 },
     healthx = { key = "healthNumberX", min = -100, max = 100 },
     healthy = { key = "healthNumberY", min = -40, max = 40 },
+    elitesize = { key = "eliteSize", min = 6, max = 30 },
+    elitex = { key = "eliteX", min = -100, max = 100 },
+    elitey = { key = "eliteY", min = -40, max = 40 },
     levelx = { key = "levelX", min = -100, max = 100 },
     levely = { key = "levelY", min = -40, max = 40 },
     powerx = { key = "powerX", min = -100, max = 100 },
@@ -103,13 +107,14 @@ local function Help()
     print("  /kui hpstyle|powerstyle " .. table.concat(ns.NUMBER_STYLES, "|") .. "  - number styles")
     print("  /kui powertextx|powertexty <n>  - move the power number")
     print("  /kui levelx|levely <n>  - move the level text")
+    print("  /kui elitesize|elitex|elitey <n>  - size or move the elite icon")
     print("  /kui powerbar off|self|target|enemies|all  - where the power bar shows")
     print("  /kui hptextx|hptexty <n>  - move the health percent")
     print("  /kui combox|comboy <n>, comboalpha <0-1>  - move combo points, empty point opacity")
     print("  /kui targetsize <1-1.3>  - make your target's plate bigger")
     print("  /kui friendlevelsize|friendlevelx|friendlevely <n>  - friendly level text")
     print("  /kui powerx|powery|powerheight <n>  - move or size the power bar")
-    print("  /kui class|tank|casters|level|hp|hpnumber|friendlevel|nofade|powernumber|commas|cast|debuffs|buffs|arrows|friendly|hpname|colors|minimap|titles|dots|combo|tot  - toggle features")
+    print("  /kui class|tank|casters|level|elite|hp|hpnumber|friendlevel|nofade|powernumber|commas|cast|debuffs|buffs|arrows|friendly|hpname|colors|minimap|titles|dots|combo|tot  - toggle features")
     print("  /kui hide <spell name or ID>  - never show that buff or debuff (/kui hide alone lists them)")
     print("  /kui unhide <spell name or ID>  - show it again")
     print("  /kui dotprobe  - show what DoT prediction can see on your target")

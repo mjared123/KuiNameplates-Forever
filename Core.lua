@@ -31,6 +31,9 @@ ns.defaults = {
     friendlyNoFade = false, -- friendly plates stay fully visible while you have a target
     friendLevel = false,  -- level left of friendly names shown without a bar
     friendLevelSize = 10, friendLevelX = 0, friendLevelY = 0,
+    showElite = true,     -- gem on the bar of elites, rares and bosses
+    eliteSize = 12,       -- its height
+    eliteX = 0, eliteY = 0, -- its nudge from the bar's top left corner
     levelX = 0, levelY = 0, -- level text moved right (+) / left (-) and up (+) / down (-)
     healthNumber = false, -- current health as a plain number, such as 3432
     healthNumberStyle = "number", -- number, short, percent, curmax, numpercent, curmaxpercent
