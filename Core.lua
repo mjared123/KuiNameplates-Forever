@@ -24,6 +24,13 @@ ns.defaults = {
     classColors = true,   -- colour enemy players by class
     healthText = true,    -- show health percent when damaged
     showLevel = false,
+    healthTextX = 0, healthTextY = 0, -- health percent moved right/left and up/down
+    comboX = 0, comboY = 0, -- combo points moved right/left and up/down
+    comboBgAlpha = 0.9,   -- opacity of the empty combo point pips
+    targetScale = 1,      -- size of your target's plate (1.05 = 5% bigger)
+    friendlyNoFade = false, -- friendly plates stay fully visible while you have a target
+    friendLevel = false,  -- level left of friendly names shown without a bar
+    friendLevelSize = 10, friendLevelX = 0, friendLevelY = 0,
     levelX = 0, levelY = 0, -- level text moved right (+) / left (-) and up (+) / down (-)
     healthNumber = false, -- current health as a plain number, such as 3432
     healthNumberStyle = "number", -- number, short, percent, curmax, numpercent, curmaxpercent

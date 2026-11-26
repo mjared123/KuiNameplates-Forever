@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.11.0
+- Health percent: left/right and up/down sliders on the Enemies tab (`/kui hptextx`, `/kui hptexty`), so it can be moved clear of the health number. You can also turn it off there (`/kui hp`).
+- The level sliders moved to the Enemies tab, next to the level setting.
+- Power bar: a new "All enemies" choice shows the energy, rage or mana bar on every enemy plate (`/kui powerbar enemies`). Its position and height settings apply to those bars too.
+- Combo points: left/right and up/down sliders, and the opacity of the empty points, on the Layout tab (`/kui combox`, `/kui comboy`, `/kui comboalpha`).
+- Your target's plate can be made a little bigger so it stands out, friendly ones included (General tab, "Size of your target's plate", or `/kui targetsize 1.05`).
+- Friendly plates: an option to keep them fully bright while you have a target, instead of fading like other plates (Friendly tab, or `/kui nofade`).
+- Friendly level: an option to show the level left of friendly names, with size and position sliders (Friendly tab, or `/kui friendlevel`).
+
 ## v0.10.0
 - Health number: show an enemy's current health as a plain number, such as 3432, at any health. It sits on the bottom left edge of the bar, where the level goes, so move one of them if you show both. Off by default; turn it on in the new Layout tab or with `/kui hpnumber`. Move it left, right, up or down with the sliders there, or `/kui healthx` and `/kui healthy`.
 - Number styles for the health number: number (3432), short (3.4k), percent (62%), number / max (3432 / 5500), number and percent, or number / max and percent. A separate setting adds commas to big numbers (3,432). Also `/kui hpstyle` and `/kui commas`.

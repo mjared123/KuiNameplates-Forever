@@ -11,6 +11,8 @@ local toggles = {
     level = { key = "showLevel", label = "Level text" },
     hp = { key = "healthText", label = "Health percent" },
     hpnumber = { key = "healthNumber", label = "Health number" },
+    friendlevel = { key = "friendLevel", label = "Level left of friendly names" },
+    nofade = { key = "friendlyNoFade", label = "Keep friendly plates bright" },
     powernumber = { key = "powerText", label = "Power number" },
     commas = { key = "numberCommas", label = "Commas in big numbers" },
     cast = { key = "castBars", label = "Cast bars" },
@@ -50,6 +52,15 @@ local numbers = {
     powerx = { key = "powerX", min = -100, max = 100 },
     powery = { key = "powerY", min = -40, max = 40 },
     powerheight = { key = "powerHeight", min = 1, max = 12 },
+    hptextx = { key = "healthTextX", min = -100, max = 100 },
+    hptexty = { key = "healthTextY", min = -40, max = 40 },
+    combox = { key = "comboX", min = -100, max = 100 },
+    comboy = { key = "comboY", min = -40, max = 40 },
+    comboalpha = { key = "comboBgAlpha", min = 0, max = 1 },
+    targetsize = { key = "targetScale", min = 1, max = 1.3 },
+    friendlevelsize = { key = "friendLevelSize", min = 6, max = 24 },
+    friendlevelx = { key = "friendLevelX", min = -100, max = 100 },
+    friendlevely = { key = "friendLevelY", min = -40, max = 40 },
     powertextx = { key = "powerTextX", min = -100, max = 100 },
     powertexty = { key = "powerTextY", min = -40, max = 40 },
 }
@@ -92,9 +103,13 @@ local function Help()
     print("  /kui hpstyle|powerstyle " .. table.concat(ns.NUMBER_STYLES, "|") .. "  - number styles")
     print("  /kui powertextx|powertexty <n>  - move the power number")
     print("  /kui levelx|levely <n>  - move the level text")
-    print("  /kui powerbar off|self|target|all  - where the power bar shows")
+    print("  /kui powerbar off|self|target|enemies|all  - where the power bar shows")
+    print("  /kui hptextx|hptexty <n>  - move the health percent")
+    print("  /kui combox|comboy <n>, comboalpha <0-1>  - move combo points, empty point opacity")
+    print("  /kui targetsize <1-1.3>  - make your target's plate bigger")
+    print("  /kui friendlevelsize|friendlevelx|friendlevely <n>  - friendly level text")
     print("  /kui powerx|powery|powerheight <n>  - move or size the power bar")
-    print("  /kui class|tank|casters|level|hp|hpnumber|powernumber|commas|cast|debuffs|buffs|arrows|friendly|hpname|colors|minimap|titles|dots|combo|tot  - toggle features")
+    print("  /kui class|tank|casters|level|hp|hpnumber|friendlevel|nofade|powernumber|commas|cast|debuffs|buffs|arrows|friendly|hpname|colors|minimap|titles|dots|combo|tot  - toggle features")
     print("  /kui hide <spell name or ID>  - never show that buff or debuff (/kui hide alone lists them)")
     print("  /kui unhide <spell name or ID>  - show it again")
     print("  /kui dotprobe  - show what DoT prediction can see on your target")
@@ -191,7 +206,7 @@ local function Handle(msg)
             db.powerBar = arg
             ns:RefreshAll()
         end
-        ns.Print("power bar: " .. tostring(db.powerBar) .. " (off, self, target, all)")
+        ns.Print("power bar: " .. tostring(db.powerBar) .. " (off, self, target, enemies, all)")
     elseif cmd == "buffpos" then
         if arg and ns.BUFF_SPOT_NAMES[arg] then
             db.buffSpot = arg

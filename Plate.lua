@@ -340,7 +340,12 @@ function ns:CreatePlate(nameplate)
     plate.level = health:CreateFontString(nil, "OVERLAY")
 
     plate.healthText = health:CreateFontString(nil, "OVERLAY")
-    plate.healthText:SetPoint("RIGHT", health, "BOTTOMRIGHT", -2, 1)
+
+    -- Level on the left of a friendly name shown without a bar.
+    plate.friendLevel = text:CreateFontString(nil, "OVERLAY")
+    plate.friendLevel:SetShadowColor(0, 0, 0, 1)
+    plate.friendLevel:SetShadowOffset(1, -1)
+    plate.friendLevel:Hide()
 
     -- Current health as a plain number. It starts on the bottom left edge of
     -- the bar, where the level sits when that is on, and can be moved.
@@ -392,11 +397,15 @@ function ns:CreatePlate(nameplate)
     return plate
 end
 
-function Plate:ApplyLayout()
+-- Size plates in screen pixels rather than following the nameplate's own
+-- scale, which makes them far larger than intended. Your target can be made
+-- a little bigger so it stands out.
+function Plate:ApplyScale()
     local db = ns.db
-    -- Size plates in screen pixels rather than following the nameplate's own
-    -- scale, which makes them far larger than intended.
     local scale = PixelScale() * (db.scale or 1)
+    if self.isTarget then scale = scale * (db.targetScale or 1) end
+    if self.appliedScale == scale then return end
+    self.appliedScale = scale
     if self.SetIgnoreParentScale then
         self:SetIgnoreParentScale(true)
         self:SetScale(scale)
@@ -405,6 +414,12 @@ function Plate:ApplyLayout()
         parentScale = ok and Plain(parentScale)
         if parentScale and parentScale > 0 then self:SetScale(scale / parentScale) end
     end
+end
+
+function Plate:ApplyLayout()
+    self.appliedScale = nil -- size settings may have changed
+    local db = ns.db
+    self:ApplyScale()
     self.health:SetSize(db.width, db.height)
     self.name:SetWidth(db.width + 60)
     ns.SetFont(self.title, db.titleSize)
@@ -413,6 +428,9 @@ function Plate:ApplyLayout()
     self:PlaceName()
     self.level:SetFont(ns.FontFile(), db.infoSize, "OUTLINE")
     self.healthText:SetFont(ns.FontFile(), db.infoSize, "OUTLINE")
+    self.healthText:ClearAllPoints()
+    self.healthText:SetPoint("RIGHT", self.health, "BOTTOMRIGHT", -2 + (db.healthTextX or 0), 1 + (db.healthTextY or 0))
+    ns.SetFont(self.friendLevel, db.friendLevelSize or 10)
     self.healthNumber:SetFont(ns.FontFile(), db.infoSize, "OUTLINE")
     self.powerText:SetFont(ns.FontFile(), db.infoSize, "OUTLINE")
     self.powerText:ClearAllPoints()
@@ -630,6 +648,8 @@ function Plate:OnUnitRemoved()
     self.cast:Hide()
     self:SetHealthNameValue(nil, nil)
     self:ShowHealthName(false)
+    self.friendLevel:Hide()
+    self.isTarget, self.friendly = false, nil
     self.wantsPower = false
     if self.power:IsShown() then
         self.power:Hide()
@@ -706,6 +726,7 @@ ns.ChooseNameParts = ChooseNameParts
 function Plate:UpdateName()
     self:SetNameText()
     self:SyncHealthName()
+    if self.friendLevel:IsShown() then self:PlaceFriendLevel() end
 end
 
 function Plate:SetNameText()
@@ -744,23 +765,52 @@ function Plate:SetNameText()
     label:SetText(ChooseNameParts(first, last, mode))
 end
 
-function Plate:UpdateLevel()
-    local unit = self.unit
-    if not ns.db.showLevel then self.level:SetText("") return end
+-- Write a unit's level, with elite/rare marks, into a font string,
+-- coloured by difficulty. Returns false when the level is hidden.
+local function SetLevelText(fs, unit)
     local level = Plain(UnitLevel(unit))
     local class = Plain(UnitClassification(unit))
     local suffix = (class and CLASSIFICATION_SUFFIX[class]) or ""
     if level and level > 0 then
         local getColor = GetCreatureDifficultyColor or GetQuestDifficultyColor
         local c = getColor and getColor(level)
-        self.level:SetText(level .. suffix)
-        if c then self.level:SetTextColor(c.r, c.g, c.b) end
+        fs:SetText(level .. suffix)
+        if c then fs:SetTextColor(c.r, c.g, c.b) end
     elseif level then
-        self.level:SetText("??" .. suffix)
-        self.level:SetTextColor(1, 0.2, 0.2)
+        fs:SetText("??" .. suffix)
+        fs:SetTextColor(1, 0.2, 0.2)
     else
-        self.level:SetText("")
+        fs:SetText("")
+        return false
     end
+    return true
+end
+
+function Plate:UpdateLevel()
+    local unit = self.unit
+    if ns.db.showLevel then SetLevelText(self.level, unit) else self.level:SetText("") end
+    self:UpdateFriendLevel()
+end
+
+-- The level left of a friendly name, when the plate shows just the name.
+function Plate:UpdateFriendLevel()
+    local fs = self.friendLevel
+    if not (ns.db.friendLevel and self.nameOnly and self.unit) or not SetLevelText(fs, self.unit) then
+        fs:Hide()
+        return
+    end
+    self:PlaceFriendLevel()
+    fs:Show()
+end
+
+-- The name's font string is wider than its text and centred, so the level is
+-- placed half the text's width left of the centre.
+function Plate:PlaceFriendLevel()
+    local db, fs = ns.db, self.friendLevel
+    local ok, half = pcall(function() return self.name:GetStringWidth() / 2 end)
+    if not ok or type(half) ~= "number" then half = 30 end
+    fs:ClearAllPoints()
+    fs:SetPoint("RIGHT", self.name, "CENTER", -half - 3 + (db.friendLevelX or 0), db.friendLevelY or 0)
 end
 
 -- Health ---------------------------------------------------------------------
@@ -908,11 +958,12 @@ end
 
 -- Power bar ------------------------------------------------------------------
 
-ns.POWER_SHOWS = { "off", "self", "target", "all" }
+ns.POWER_SHOWS = { "off", "self", "target", "enemies", "all" }
 ns.POWER_SHOW_NAMES = {
     off = "Off",
     self = "Your own plate only",
-    target = "Your own plate and your target",
+    target = "Your target (and your own plate)",
+    enemies = "All enemies (and your own plate)",
     all = "Every plate with a health bar",
 }
 
@@ -953,6 +1004,7 @@ function Plate:WantsPower()
     if (ok and own and own == self.nameplate) or Plain(UnitIsUnit(self.unit, "player")) then
         return true
     end
+    if mode == "enemies" then return Plain(UnitCanAttack("player", self.unit)) == true end
     return mode == "target" and self.isTarget or false
 end
 
@@ -1075,13 +1127,15 @@ end
 function Plate:UpdateMode()
     local unit, db = self.unit, ns.db
     -- Only when the game plainly says the unit can't be attacked.
-    local nameOnly = db.nameOnly and Plain(UnitCanAttack("player", unit)) == false
+    self.friendly = Plain(UnitCanAttack("player", unit)) == false
+    local nameOnly = db.nameOnly and self.friendly
     if nameOnly ~= self.nameOnly then
         self.nameOnly = nameOnly
         self.health:SetShown(not nameOnly)
         self:PlaceName()
         if nameOnly then self.cast:Hide() end
     end
+    Try(self.UpdateFriendLevel, self)
     Try(self.UpdateTitle, self)
     self:ShowHealthName(nameOnly)
     if not nameOnly then
@@ -1375,7 +1429,8 @@ function Plate:UpdateTarget()
     -- Compare plate frames rather than unit info, which may be hidden.
     local targetPlate = UnitExists("target") and C_NamePlate.GetNamePlateForUnit("target")
     self.isTarget = (targetPlate == self.nameplate)
-    if self.isTarget or not UnitExists("target") then
+    self:ApplyScale()
+    if self.isTarget or not UnitExists("target") or (self.friendly and ns.db.friendlyNoFade) then
         self:SetAlpha(1)
     elseif self.nameOnly then
         -- Bare names stay readable instead of fading with the bars.
@@ -2083,6 +2138,17 @@ function Plate:ShowTest(friendly)
     self.healthText:SetText((db.healthText and not friendly) and "62%" or "")
     self.level:SetText(db.showLevel and "25" or "")
     self.level:SetTextColor(1, 0.82, 0)
+    if friendly and db.friendLevel and self.nameOnly then
+        self.friendLevel:SetText("60")
+        self.friendLevel:SetTextColor(1, 0.82, 0)
+        self:PlaceFriendLevel()
+        self.friendLevel:Show()
+    else
+        self.friendLevel:Hide()
+    end
+    -- The sample enemy is your target, at the target size.
+    self.isTarget = not friendly
+    self:ApplyScale()
     if db.healthNumber and not friendly then
         SetNumberText(self.healthNumber, db.healthNumberStyle, 3432, 5500)
     else

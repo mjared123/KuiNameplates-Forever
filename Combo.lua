@@ -38,6 +38,7 @@ local function CreatePips(plate)
         empty:SetTexture(SOLID)
         empty:SetVertexColor(COLOR_OFF[1], COLOR_OFF[2], COLOR_OFF[3], COLOR_OFF[4])
         empty:SetAllPoints(pip)
+        pip.empty, pip.border = empty, border
         holder.pips[i] = pip
     end
     holder:Hide()
@@ -54,11 +55,17 @@ function ns.ShowCombo(plate, points, max)
     end
     max = math.max(1, math.min(max or 5, MAX_PIPS))
     local total = max * PIP_WIDTH + (max - 1) * PIP_GAP
+    local db = ns.db
+    local x, y = db.comboX or 0, db.comboY or 0
+    local bgAlpha = db.comboBgAlpha or COLOR_OFF[4]
     for i, pip in ipairs(holder.pips) do
         if i <= max then
             pip:ClearAllPoints()
             pip:SetPoint("CENTER", plate.health, "BOTTOM",
-                -total / 2 + PIP_WIDTH / 2 + (i - 1) * (PIP_WIDTH + PIP_GAP), -(plate.powerGap or 0))
+                x - total / 2 + PIP_WIDTH / 2 + (i - 1) * (PIP_WIDTH + PIP_GAP), y - (plate.powerGap or 0))
+            -- The empty part (and its outline) can be made see-through.
+            pip.empty:SetAlpha(math.min(1, bgAlpha / COLOR_OFF[4]))
+            pip.border:SetAlpha(math.min(1, math.max(bgAlpha / COLOR_OFF[4], 0.25)))
             pip:SetValue(points)
             pip:Show()
         else

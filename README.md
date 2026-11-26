@@ -12,7 +12,8 @@ Copy the `KuiNameplates` folder into `World of Warcraft/_forever_/Interface/AddO
 - Compact bars sized in screen pixels, the same at any UI scale, with an overall size slider
 - Muted reaction colours, class colours for enemy players
 - Level with elite/rare markers and health percent on the bottom edge of the bar; the level can be moved
-- Optional current health as a plain number (3432), placed wherever you like on or around the bar
+- Optional current health as a plain number (3432), placed wherever you like on or around the bar; the health percent can be moved or turned off
+- Optional bigger plate for your target, and combo points you can move
 - Optional power bar (energy, rage, mana) under the health bar on your own plate, your target or every plate, with height and position settings
 - Soft glow: blue on your target, orange or red for threat; optional tank mode bar colours you can pick
 - Optional bar colour for enemy NPCs that cast spells
