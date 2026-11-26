@@ -706,7 +706,7 @@ function ns:CreateOptions()
         tab.label = tab:CreateFontString(nil, "ARTWORK", "GameFontNormal")
         tab.label:SetPoint("CENTER")
         tab.label:SetText(info.name)
-        tab:SetSize(tab.label:GetStringWidth() + 24, 24)
+        tab:SetSize(tab.label:GetStringWidth() + 16, 24) -- eight tabs share one row
         tab:SetPoint("TOPLEFT", tabX, -46)
         tabX = tabX + tab:GetWidth() + 4
         local hover = tab:CreateTexture(nil, "HIGHLIGHT")
